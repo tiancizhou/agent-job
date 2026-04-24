@@ -477,8 +477,8 @@ async function submit() {
 @media (max-width: 900px) {
   .login-page {
     grid-template-columns: 1fr;
-    gap: 36px;
-    padding: 40px 20px;
+    gap: 32px;
+    padding: 36px 20px;
   }
 
   .login-hero {
@@ -494,17 +494,90 @@ async function submit() {
   .login-hero__examples {
     justify-content: center;
   }
+
+  .login-card {
+    max-width: 420px;
+    justify-self: center;
+    width: 100%;
+  }
 }
 
-@media (max-width: 520px) {
+@media (hover: none) {
   .login-card {
-    padding: 24px;
+    transform: none !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .login-page {
+    gap: 20px;
+    padding: 24px 16px 32px;
+  }
+
+  .login-hero__badge {
+    font-size: 11px;
+    padding: 6px 12px;
+  }
+
+  .login-hero__subtitle {
+    margin-top: 10px;
+  }
+
+  .login-hero__desc {
+    font-size: 14px;
+    margin-top: 14px;
+  }
+
+  .login-hero__examples {
+    margin-top: 18px;
+    gap: 8px;
+  }
+
+  .login-hero__examples span {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .login-card {
+    padding: 24px 20px;
     border-radius: 24px;
+    max-width: none;
+  }
+
+  .login-card__header h2 {
+    font-size: 22px;
+  }
+
+  .login-card__header p {
+    font-size: 13px;
+  }
+
+  .form {
+    gap: 14px;
+  }
+
+  .form__input {
+    padding: 14px 16px;
+    font-size: 16px;
+    border-radius: 14px;
+  }
+
+  .form__btn {
+    padding: 15px 18px;
+    font-size: 16px;
+  }
+
+  .login-card__switch {
+    margin-top: 14px;
+    padding: 8px;
   }
 
   .login-card__footer {
     flex-direction: column;
     align-items: center;
+    gap: 4px;
+    margin-top: 18px;
+    padding-top: 14px;
   }
 }
 </style>
