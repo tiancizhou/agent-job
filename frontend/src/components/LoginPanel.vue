@@ -510,32 +510,45 @@ async function submit() {
 
 @media (max-width: 600px) {
   .login-page {
-    gap: 20px;
-    padding: 24px 16px 32px;
+    min-height: auto;
+    align-items: start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    gap: 16px;
+    padding: 20px 16px 32px;
+  }
+
+  .login-hero {
+    text-align: center;
   }
 
   .login-hero__badge {
     font-size: 11px;
-    padding: 6px 12px;
+    padding: 5px 10px;
+  }
+
+  .login-hero__title {
+    margin-top: 12px;
+    font-size: 40px;
   }
 
   .login-hero__subtitle {
-    margin-top: 10px;
+    margin-top: 6px;
+    font-size: 18px;
   }
 
   .login-hero__desc {
-    font-size: 14px;
-    margin-top: 14px;
+    display: none;
   }
 
   .login-hero__examples {
-    margin-top: 18px;
-    gap: 8px;
+    margin-top: 10px;
+    gap: 6px;
   }
 
   .login-hero__examples span {
-    padding: 7px 12px;
-    font-size: 12px;
+    padding: 5px 10px;
+    font-size: 11px;
   }
 
   .login-card {
