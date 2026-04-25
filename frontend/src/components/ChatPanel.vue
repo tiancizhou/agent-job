@@ -316,18 +316,18 @@ const heroStyle = computed(() => ({
 }))
 
 const previewUrl = computed(() => (
-  currentApp.value?.status === "active" && currentAppId.value ? `/apps/${currentAppId.value}/` : null
+  (currentApp.value?.status === "active" || currentApp.value?.status === "editing") && currentAppId.value ? `/apps/${currentAppId.value}/` : null
 ))
 
 const previewTitle = computed(() => {
   if (currentApp.value?.status === "failed") return "应用生成失败"
-  if (isStreaming.value || currentApp.value?.status === "creating") return "正在准备预览"
+  if (isStreaming.value || currentApp.value?.status === "creating" || currentApp.value?.status === "editing") return "正在准备预览"
   return "预览暂不可用"
 })
 
 const previewDescription = computed(() => {
   if (currentApp.value?.status === "failed") return "可以在左侧继续对话，让 QuickApp 重新调整或再次生成。"
-  if (isStreaming.value || currentApp.value?.status === "creating") return "模型回复会正常显示在左侧，页面生成完成后这里会自动切换为实时预览。"
+  if (isStreaming.value || currentApp.value?.status === "creating" || currentApp.value?.status === "editing") return "模型回复会正常显示在左侧，页面生成完成后这里会自动切换为实时预览。"
   return "当前应用还没有可打开的页面。"
 })
 
@@ -367,13 +367,13 @@ watch(
       currentApp.value = app
       selectedStyleId.value = app.style_id || null
 
-      if (app.status === "creating") {
+      if (app.status === "creating" || app.status === "editing") {
         streamProgress.value = app.progress || "正在生成中..."
       }
 
       if (messageCache.value[newId]) {
         messages.value = messageCache.value[newId]
-        if (app.status === "creating") {
+        if (app.status === "creating" || app.status === "editing") {
           startStatusPolling(newId)
         }
         await scrollToBottom()
@@ -598,11 +598,11 @@ function startStatusPolling(appId: string) {
       const app = await getApp(appId)
       if (currentAppId.value === appId) {
         currentApp.value = app
-        if (app.status === "creating" && app.progress) {
+        if ((app.status === "creating" || app.status === "editing") && app.progress) {
           streamProgress.value = app.progress
         }
       }
-      if (app.status === "creating") {
+      if (app.status === "creating" || app.status === "editing") {
         return
       }
 
