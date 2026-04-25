@@ -1,5 +1,6 @@
 import importlib
 import os
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -125,6 +126,87 @@ class DatabaseConfigurationTestCase(unittest.TestCase):
             tmp.cleanup()
             for name in list(sys.modules):
                 if name in {"database", "models", "config"}:
+                    sys.modules.pop(name, None)
+            os.environ.pop("DATABASE_URL", None)
+
+    def test_database_preparation_leaves_existing_sqlite_database_unchanged(self):
+        old_cwd = os.getcwd()
+        tmp = tempfile.TemporaryDirectory()
+        db_path = Path(tmp.name) / "quickapp.db"
+        os.chdir(BACKEND_DIR)
+        sys.path.insert(0, str(BACKEND_DIR))
+        os.environ["LLM_API_KEY"] = "test-key"
+        os.environ["LLM_BASE_URL"] = "https://example.test"
+        os.environ["LLM_MODEL"] = "test-model"
+        os.environ["DATABASE_URL"] = f"sqlite:///{db_path.as_posix()}"
+        for name in list(sys.modules):
+            if name in {"config", "prepare_database", "database", "models"}:
+                sys.modules.pop(name, None)
+        try:
+            connection = sqlite3.connect(db_path)
+            connection.execute("create table legacy_marker (id integer primary key)")
+            connection.execute("insert into legacy_marker (id) values (1)")
+            connection.commit()
+            connection.close()
+
+            prepare_database = importlib.import_module("prepare_database")
+            prepare_database.main()
+
+            connection = sqlite3.connect(db_path)
+            try:
+                tables = [row[0] for row in connection.execute("select name from sqlite_master where type='table'").fetchall()]
+                marker_count = connection.execute("select count(*) from legacy_marker").fetchone()[0]
+            finally:
+                connection.close()
+
+            self.assertIn("legacy_marker", tables)
+            self.assertNotIn("users", tables)
+            self.assertEqual(1, marker_count)
+            backups = list(Path(tmp.name).glob("quickapp.db.legacy-*.bak"))
+            self.assertEqual([], backups)
+        finally:
+            os.chdir(old_cwd)
+            tmp.cleanup()
+            for name in list(sys.modules):
+                if name in {"config", "prepare_database", "database", "models"}:
+                    sys.modules.pop(name, None)
+            os.environ.pop("DATABASE_URL", None)
+
+    def test_database_preparation_initializes_missing_sqlite_database(self):
+        old_cwd = os.getcwd()
+        tmp = tempfile.TemporaryDirectory()
+        db_path = Path(tmp.name) / "quickapp.db"
+        os.chdir(BACKEND_DIR)
+        sys.path.insert(0, str(BACKEND_DIR))
+        os.environ["LLM_API_KEY"] = "test-key"
+        os.environ["LLM_BASE_URL"] = "https://example.test"
+        os.environ["LLM_MODEL"] = "test-model"
+        os.environ["DATABASE_URL"] = f"sqlite:///{db_path.as_posix()}"
+        for name in list(sys.modules):
+            if name in {"config", "prepare_database", "database", "models"}:
+                sys.modules.pop(name, None)
+        try:
+            prepare_database = importlib.import_module("prepare_database")
+            prepare_database.main()
+
+            connection = sqlite3.connect(db_path)
+            try:
+                user_columns = [row[1] for row in connection.execute("pragma table_info(users)").fetchall()]
+                session_columns = [row[1] for row in connection.execute("pragma table_info(sessions)").fetchall()]
+                style_count = connection.execute("select count(*) from styles").fetchone()[0]
+                admin_count = connection.execute("select count(*) from users where employee_no = '64003'").fetchone()[0]
+            finally:
+                connection.close()
+
+            self.assertIn("updated_at", user_columns)
+            self.assertIn("ip_address", session_columns)
+            self.assertEqual(14, style_count)
+            self.assertEqual(1, admin_count)
+        finally:
+            os.chdir(old_cwd)
+            tmp.cleanup()
+            for name in list(sys.modules):
+                if name in {"config", "prepare_database", "database", "models"}:
                     sys.modules.pop(name, None)
             os.environ.pop("DATABASE_URL", None)
 

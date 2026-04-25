@@ -8,5 +8,7 @@ fi
 
 .venv/bin/pip install -r requirements.txt -q
 
+.venv/bin/python prepare_database.py
+
 PORT="${SERVER_PORT:-8000}"
 .venv/bin/uvicorn main:app --host 0.0.0.0 --port "$PORT"
