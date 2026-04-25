@@ -60,6 +60,12 @@ JSON 格式如下：
 - 表单、按钮、导航、卡片、表格都要适配移动端；表格在手机上改为卡片、横向滚动容器或可读的纵向布局
 - 按钮、输入框、选择器等触控控件高度不小于 44px，并保留足够间距
 - 图片、卡片、容器必须 max-width: 100%，布局宽度使用百分比、flex、grid、clamp、minmax 等响应式方式
+- 如果应用需要保存用户新增、编辑或删除的数据，必须调用后端持久化接口，不要把 localStorage 作为主存储
+- 持久化接口必须使用以 /api 开头的绝对路径：GET/POST /api/generated/{app_id}/data/{collection}，GET/PUT/DELETE /api/generated/{app_id}/data/{collection}/{record_id}
+- 不要使用 ./api、api/generated 或 project/api 这类相对路径调用持久化接口
+- POST/PUT 请求体必须是 {"data": {...}}，data 必须是对象；collection 使用英文、数字、下划线或短横线
+- js/app.js 必须从当前页面路径解析 app_id，例如 /generated/{app_id}/project/index.html，不要硬编码 app_id
+- 网络请求失败时在界面提示用户保存失败
 - 只能输出 JSON
 """.strip()
 
@@ -88,6 +94,12 @@ JSON 格式如下：
 - 修改后的页面在 375px 宽度下必须可读、可点、无横向滚动
 - 按钮、输入框、选择器等触控控件高度不小于 44px
 - 需要桌面增强时使用 @media (min-width: 768px)
+- 如果应用需要保存用户新增、编辑或删除的数据，必须调用后端持久化接口，不要把 localStorage 作为主存储
+- 持久化接口必须使用以 /api 开头的绝对路径：GET/POST /api/generated/{app_id}/data/{collection}，GET/PUT/DELETE /api/generated/{app_id}/data/{collection}/{record_id}
+- 不要使用 ./api、api/generated 或 project/api 这类相对路径调用持久化接口
+- POST/PUT 请求体必须是 {"data": {...}}，data 必须是对象；collection 使用英文、数字、下划线或短横线
+- js/app.js 必须从当前页面路径解析 app_id，例如 /generated/{app_id}/project/index.html，不要硬编码 app_id
+- 网络请求失败时在界面提示用户保存失败
 - 只能输出 JSON
 """.strip()
 

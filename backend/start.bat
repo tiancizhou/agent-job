@@ -7,4 +7,6 @@ if not exist .venv (
 
 .venv\Scripts\pip install -r requirements.txt -q
 
+.venv\Scripts\python prepare_database.py
+
 .venv\Scripts\uvicorn main:app --reload --port 8000

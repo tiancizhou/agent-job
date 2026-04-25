@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 from config import settings
 from database import get_db
 from models import App, User
-from routers import admin, apps, auth, chat, styles, usage
+from routers import admin, app_data, apps, auth, chat, styles, usage
+from routers.app_data import can_access_generated_app
 from services import code_service
 from services.auth_service import get_current_user
 
@@ -28,6 +29,7 @@ app.include_router(apps.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(styles.router, prefix="/api")
 app.include_router(usage.router, prefix="/api")
+app.include_router(app_data.router, prefix="/api")
 
 # Serve generated apps at /apps/{app_id}/
 data_dir = settings.DATA_DIR
@@ -69,13 +71,7 @@ def serve_generated_app(
 
 
 def _can_serve_generated_files(generated_app: App | None) -> bool:
-    return bool(
-        generated_app
-        and (
-            generated_app.status == "active"
-            or (generated_app.status in {"editing", "edit_failed"} and generated_app.version > 0)
-        )
-    )
+    return can_access_generated_app(generated_app)
 
 
 # Serve frontend build at / (if static/ exists)

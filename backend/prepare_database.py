@@ -34,8 +34,6 @@ def upgrade_database() -> None:
 
 
 def main() -> None:
-    if database_exists(settings.DATABASE_URL):
-        return
     upgrade_database()
 
 

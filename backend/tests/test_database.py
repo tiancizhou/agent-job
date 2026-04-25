@@ -129,7 +129,7 @@ class DatabaseConfigurationTestCase(unittest.TestCase):
                     sys.modules.pop(name, None)
             os.environ.pop("DATABASE_URL", None)
 
-    def test_database_preparation_leaves_existing_sqlite_database_unchanged(self):
+    def test_database_preparation_upgrades_existing_sqlite_database(self):
         old_cwd = os.getcwd()
         tmp = tempfile.TemporaryDirectory()
         db_path = Path(tmp.name) / "quickapp.db"
@@ -143,11 +143,8 @@ class DatabaseConfigurationTestCase(unittest.TestCase):
             if name in {"config", "prepare_database", "database", "models"}:
                 sys.modules.pop(name, None)
         try:
-            connection = sqlite3.connect(db_path)
-            connection.execute("create table legacy_marker (id integer primary key)")
-            connection.execute("insert into legacy_marker (id) values (1)")
-            connection.commit()
-            connection.close()
+            alembic_cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+            command.upgrade(alembic_cfg, "0001_initial_schema")
 
             prepare_database = importlib.import_module("prepare_database")
             prepare_database.main()
@@ -155,13 +152,13 @@ class DatabaseConfigurationTestCase(unittest.TestCase):
             connection = sqlite3.connect(db_path)
             try:
                 tables = [row[0] for row in connection.execute("select name from sqlite_master where type='table'").fetchall()]
-                marker_count = connection.execute("select count(*) from legacy_marker").fetchone()[0]
+                version = connection.execute("select version_num from alembic_version").fetchone()[0]
             finally:
                 connection.close()
 
-            self.assertIn("legacy_marker", tables)
-            self.assertNotIn("users", tables)
-            self.assertEqual(1, marker_count)
+            self.assertIn("users", tables)
+            self.assertIn("app_data_records", tables)
+            self.assertEqual("0002_app_data_records", version)
             backups = list(Path(tmp.name).glob("quickapp.db.legacy-*.bak"))
             self.assertEqual([], backups)
         finally:
@@ -317,9 +314,11 @@ class ModelMetadataTestCase(unittest.TestCase):
     def test_app_foreign_keys_define_database_delete_behavior(self):
         app_id_fk = next(iter(self.models.Conversation.__table__.columns["app_id"].foreign_keys))
         usage_app_fk = next(iter(self.models.UsageRecord.__table__.columns["app_id"].foreign_keys))
+        app_data_fk = next(iter(self.models.AppDataRecord.__table__.columns["app_id"].foreign_keys))
         style_fk = next(iter(self.models.App.__table__.columns["style_id"].foreign_keys))
         self.assertEqual("CASCADE", app_id_fk.ondelete)
         self.assertEqual("SET NULL", usage_app_fk.ondelete)
+        self.assertEqual("CASCADE", app_data_fk.ondelete)
         self.assertEqual("SET NULL", style_fk.ondelete)
 
     def test_preview_token_uses_unique_constraint_without_duplicate_index(self):

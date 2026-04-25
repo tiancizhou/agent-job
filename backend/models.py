@@ -168,6 +168,21 @@ class UsageRecord(Base):
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class AppDataRecord(Base):
+    __tablename__ = "app_data_records"
+    __table_args__ = (
+        Index("ix_app_data_records_app_collection_created", "app_id", "collection", "created_at"),
+        Index("ix_app_data_records_app_collection", "app_id", "collection"),
+    )
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    app_id = Column(String(36), ForeignKey("apps.id", ondelete="CASCADE"), nullable=False)
+    collection = Column(String(64), nullable=False)
+    payload = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class UserResponse(BaseModel):
     employee_no: str
     is_admin: bool
@@ -226,6 +241,23 @@ class ConversationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AppDataCreateRequest(BaseModel):
+    data: dict
+
+
+class AppDataUpdateRequest(BaseModel):
+    data: dict
+
+
+class AppDataRecordResponse(BaseModel):
+    id: str
+    app_id: str
+    collection: str
+    data: dict
+    created_at: datetime
+    updated_at: datetime
 
 
 class UsageSummaryResponse(BaseModel):

@@ -53,6 +53,12 @@ class AiServicePromptTestCase(unittest.TestCase):
         self.assertIn("不要破坏", prompt)
         self.assertIn("44px", prompt)
 
+    def test_project_prompts_require_absolute_persistence_api_paths(self):
+        for prompt in [ai_service.PROJECT_GENERATE_SYSTEM_PROMPT, ai_service.PROJECT_MODIFY_SYSTEM_PROMPT]:
+            self.assertIn("以 /api 开头的绝对路径", prompt)
+            self.assertIn("/api/generated/{app_id}/data/{collection}", prompt)
+            self.assertIn("不要使用 ./api", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()
