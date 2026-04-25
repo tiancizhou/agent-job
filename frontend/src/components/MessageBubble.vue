@@ -28,6 +28,9 @@
           <a :href="resultUrl" target="_blank" rel="noopener noreferrer" class="result-panel__btn result-panel__btn--primary">
             预览应用
           </a>
+          <button type="button" class="result-panel__btn" @click="copyResultUrl">
+            {{ copyButtonText }}
+          </button>
           <a :href="resultUrl" target="_blank" rel="noopener noreferrer" class="result-panel__btn">
             新窗口打开
           </a>
@@ -48,6 +51,7 @@ const props = defineProps<{
 }>()
 
 const codeStreamRef = ref<HTMLElement | null>(null)
+const copyButtonText = ref("复制链接")
 
 const isCodeStream = computed(() => (
   props.role === "assistant"
@@ -81,6 +85,16 @@ const resultDescription = computed(() => {
   if (props.resultStatus === "failed") return "请调整需求后重新发送，QuickApp 会继续尝试生成。"
   return "模型回复会保留在上方，生成完成后这里会自动收起。"
 })
+
+async function copyResultUrl() {
+  if (!props.resultUrl) return
+  const fullUrl = new URL(props.resultUrl, window.location.origin).toString()
+  await navigator.clipboard.writeText(fullUrl)
+  copyButtonText.value = "已复制"
+  window.setTimeout(() => {
+    copyButtonText.value = "复制链接"
+  }, 1600)
+}
 </script>
 
 <style scoped>
@@ -284,8 +298,10 @@ const resultDescription = computed(() => {
   background: rgba(240, 249, 255, 0.82);
   color: #0369a1;
   text-decoration: none;
+  font-family: inherit;
   font-size: 12px;
   font-weight: 720;
+  cursor: pointer;
   transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
