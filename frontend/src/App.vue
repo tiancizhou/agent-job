@@ -16,12 +16,16 @@
         <button v-if="currentUser.is_admin" type="button" @click="showAdmin = !showAdmin">
           {{ showAdmin ? "应用生成" : "工号管理" }}
         </button>
+        <button type="button" class="topbar__usage" @click="isUsagePanelOpen = true">
+          Token：{{ formatTokenCount(usageSummary?.total_tokens || 0) }}
+        </button>
         <div class="topbar__user">
           <span>{{ currentUser.employee_no }}</span>
           <button type="button" @click="onLogout">退出登录</button>
         </div>
       </header>
 
+      <UsagePanel v-if="isUsagePanelOpen" :summary="usageSummary" @close="isUsagePanelOpen = false" />
       <EmployeeAdmin v-if="showAdmin" @close="showAdmin = false" />
       <ChatPanel
         v-else
@@ -46,7 +50,8 @@ import AppList from "./components/AppList.vue"
 import ChatPanel from "./components/ChatPanel.vue"
 import EmployeeAdmin from "./components/EmployeeAdmin.vue"
 import LoginPanel from "./components/LoginPanel.vue"
-import { deleteApp, getCurrentUser, listApps, listStyles, logout, type App, type CurrentUser, type Style } from "./api/index"
+import UsagePanel from "./components/UsagePanel.vue"
+import { deleteApp, getCurrentUser, getUsageSummary, listApps, listStyles, logout, type App, type CurrentUser, type Style, type UsageSummary } from "./api/index"
 
 const apps = ref<App[]>([])
 const styles = ref<Style[]>([])
@@ -55,11 +60,13 @@ const currentUser = ref<CurrentUser | null>(null)
 const isCheckingAuth = ref(true)
 const showAdmin = ref(false)
 const mobileView = ref<"apps" | "chat" | "preview">("chat")
+const usageSummary = ref<UsageSummary | null>(null)
+const isUsagePanelOpen = ref(false)
 
 onMounted(async () => {
   try {
     currentUser.value = await getCurrentUser()
-    await Promise.all([loadInitialApps(), loadStyles()])
+    await Promise.all([loadInitialApps(), loadStyles(), refreshUsageSummary()])
   } catch {
     currentUser.value = null
   } finally {
@@ -82,7 +89,7 @@ async function loadInitialApps() {
 async function onAuthenticated(user: CurrentUser) {
   currentUser.value = user
   showAdmin.value = false
-  await Promise.all([loadInitialApps(), loadStyles()])
+  await Promise.all([loadInitialApps(), loadStyles(), refreshUsageSummary()])
 }
 
 async function refreshApps() {
@@ -94,6 +101,14 @@ async function loadStyles() {
     styles.value = await listStyles()
   } catch {
     styles.value = []
+  }
+}
+
+async function refreshUsageSummary() {
+  try {
+    usageSummary.value = await getUsageSummary()
+  } catch {
+    usageSummary.value = null
   }
 }
 
@@ -128,7 +143,7 @@ function onAppCreated(app: App) {
 }
 
 async function onAppUpdated(app: App) {
-  await refreshApps()
+  await Promise.all([refreshApps(), refreshUsageSummary()])
   selectedAppId.value = app.id
   window.localStorage.setItem("quickapp:selectedAppId", app.id)
 }
@@ -138,9 +153,17 @@ async function onLogout() {
   currentUser.value = null
   apps.value = []
   styles.value = []
+  usageSummary.value = null
   selectedAppId.value = null
   showAdmin.value = false
+  isUsagePanelOpen.value = false
   window.localStorage.removeItem("quickapp:selectedAppId")
+}
+
+function formatTokenCount(value: number): string {
+  if (value >= 10000) return `${(value / 10000).toFixed(1)}万`
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`
+  return String(value)
 }
 </script>
 
@@ -195,6 +218,12 @@ async function onLogout() {
   font-size: 13px;
   font-weight: 650;
   cursor: pointer;
+}
+
+.topbar__usage {
+  border-color: rgba(14, 165, 233, 0.22) !important;
+  background: rgba(240, 249, 255, 0.9) !important;
+  color: #0369a1 !important;
 }
 
 .topbar__user {

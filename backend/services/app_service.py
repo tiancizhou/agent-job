@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 
 from config import Settings
 from database import SessionLocal
-from models import App, Conversation, Style
-from services import ai_service, code_service
+from models import App, Conversation, Style, UsageRecord
+from services import ai_service, code_service, token_service
 
 LEGACY_HTML_SYSTEM_PROMPT = (
     "You are an expert frontend developer. When the user describes an application, "
@@ -113,6 +113,10 @@ async def _run_html_generation(
     state: GenerationState,
 ) -> None:
     db = SessionLocal()
+    messages: list[dict] = []
+    full_reply: list[str] = []
+    stream_usage: ai_service.TokenUsage | None = None
+    action = "generate"
     try:
         app = db.query(App).filter(App.id == app_id).first()
         if not app:
@@ -123,6 +127,7 @@ async def _run_html_generation(
             return
 
         is_first = app.version == 0
+        action = "generate" if is_first else "edit"
         if is_first:
             await _set_app_name(app, user_message, settings, db)
 
@@ -135,11 +140,13 @@ async def _run_html_generation(
 
         messages = _build_project_messages(app, user_message, prior_conversations, settings, db)
 
-        full_reply: list[str] = []
-        async for chunk in ai_service.stream_chat(messages, settings):
-            full_reply.append(chunk)
-            state.chunks.append(chunk)
-            await _publish(state, "message", {"content": chunk})
+        async for event in ai_service.stream_chat_events(messages, settings):
+            if event.content:
+                full_reply.append(event.content)
+                state.chunks.append(event.content)
+                await _publish(state, "message", {"content": event.content})
+            if event.usage:
+                stream_usage = event.usage
 
         reply_text = "".join(full_reply)
         await _publish(state, "progress", {"content": "正在解析项目文件..."})
@@ -148,9 +155,21 @@ async def _run_html_generation(
         if saved_url:
             app.status = "active"
             app.version = (app.version or 0) + 1
+            usage_status = "success"
         else:
             app.status = "failed" if is_first else "edit_failed"
+            usage_status = "failed"
 
+        _record_usage(
+            db=db,
+            app=app,
+            action=action,
+            messages=messages,
+            reply_text=reply_text,
+            settings=settings,
+            usage=stream_usage,
+            status=usage_status,
+        )
         app.progress = None
         db.add(Conversation(
             id=str(uuid.uuid4()),
@@ -163,6 +182,17 @@ async def _run_html_generation(
     except Exception:
         app = db.query(App).filter(App.id == app_id).first()
         if app:
+            if messages:
+                _record_usage(
+                    db=db,
+                    app=app,
+                    action=action,
+                    messages=messages,
+                    reply_text="".join(full_reply),
+                    settings=settings,
+                    usage=stream_usage,
+                    status="failed",
+                )
             app.status = "failed" if (app.version or 0) == 0 else "edit_failed"
             app.progress = None
             db.commit()
@@ -212,17 +242,23 @@ def _save_generation_result(app: App, reply_text: str, is_first: bool, settings:
         files = code_service.parse_project_json(reply_text)
         if files:
             code_service.save_project(app.id, files, settings.DATA_DIR)
+            app.entry_path = "index.html"
+            app.project_type = "project"
             return f"/generated/{app.id}/project/index.html"
     else:
         project_index = code_service.project_dir_for(app.id, settings.DATA_DIR) / "index.html"
         changes = code_service.parse_changes_json(reply_text)
         if changes and project_index.exists():
             code_service.save_changes(app.id, changes, settings.DATA_DIR)
+            app.entry_path = "index.html"
+            app.project_type = "project"
             return f"/generated/{app.id}/project/index.html"
 
     html = code_service.extract_html(reply_text)
     if html:
         code_service.save_html(app.id, html, settings.DATA_DIR)
+        app.entry_path = "index.html"
+        app.project_type = "html"
         return f"/apps/{app.id}/"
     return None
 
@@ -242,13 +278,59 @@ async def _set_app_name(app: App, user_message: str, settings: Settings, db: Ses
         }
     ]
     try:
-        app_name = await ai_service.non_streaming_chat(naming_messages, settings)
-        clean_name = app_name.strip().strip('"').strip("'")
+        result = await ai_service.non_streaming_chat_with_usage(naming_messages, settings)
+        clean_name = result.content.strip().strip('"').strip("'")
         app.name = clean_name if re.search(r"[\u4e00-\u9fff]", clean_name) else "新应用"
+        _record_usage(db, app, "name", naming_messages, result.content, settings, result.usage, "success")
         db.commit()
         db.refresh(app)
     except Exception:
         pass
+
+
+def _provider_from_base_url(base_url: str) -> str:
+    lowered = base_url.lower()
+    if "deepseek" in lowered:
+        return "deepseek"
+    if "openai" in lowered:
+        return "openai"
+    return "unknown"
+
+
+def _record_usage(
+    db: Session,
+    app: App,
+    action: str,
+    messages: list[dict],
+    reply_text: str,
+    settings: Settings,
+    usage: ai_service.TokenUsage | None,
+    status: str,
+) -> None:
+    if usage:
+        prompt_tokens = usage.prompt_tokens
+        completion_tokens = usage.completion_tokens
+        total_tokens = usage.total_tokens or prompt_tokens + completion_tokens
+        is_estimated = False
+    else:
+        prompt_tokens = token_service.estimate_messages_tokens(messages)
+        completion_tokens = token_service.estimate_text_tokens(reply_text)
+        total_tokens = prompt_tokens + completion_tokens
+        is_estimated = True
+    db.add(UsageRecord(
+        id=str(uuid.uuid4()),
+        user_id=app.user_id,
+        app_id=app.id,
+        action=action,
+        provider=_provider_from_base_url(settings.LLM_BASE_URL),
+        model=settings.LLM_MODEL,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=total_tokens,
+        cost=0,
+        is_estimated=is_estimated,
+        status=status,
+    ))
 
 
 def _get_style_prompt(app: App, db: Session) -> str | None:

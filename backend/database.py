@@ -1,12 +1,34 @@
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = "sqlite:///./quickapp.db"
+from config import settings
+
+
+def is_sqlite_url(database_url: str) -> bool:
+    return database_url.startswith("sqlite")
+
+
+def connect_args_for(database_url: str) -> dict:
+    if is_sqlite_url(database_url):
+        return {"check_same_thread": False}
+    return {}
+
 
 engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
+    settings.DATABASE_URL,
+    connect_args=connect_args_for(settings.DATABASE_URL),
 )
+
+
+@event.listens_for(Engine, "connect")
+def enable_sqlite_foreign_keys(dbapi_connection, _connection_record):
+    if not is_sqlite_url(settings.DATABASE_URL):
+        return
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -15,15 +37,6 @@ Base = declarative_base()
 
 def initialize_database():
     Base.metadata.create_all(bind=engine)
-    with engine.begin() as connection:
-        columns = connection.execute(text("PRAGMA table_info(apps)")).fetchall()
-        column_names = {column[1] for column in columns}
-        if column_names and "progress" not in column_names:
-            connection.execute(text("ALTER TABLE apps ADD COLUMN progress TEXT"))
-        if column_names and "user_id" not in column_names:
-            connection.execute(text("ALTER TABLE apps ADD COLUMN user_id TEXT"))
-        if column_names and "style_id" not in column_names:
-            connection.execute(text("ALTER TABLE apps ADD COLUMN style_id TEXT"))
 
 
 def get_db():

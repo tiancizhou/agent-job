@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -15,7 +15,7 @@ class AuthRequest(BaseModel):
 
 
 @router.post("/auth/register", response_model=UserResponse)
-def register(body: AuthRequest, response: Response, db: Session = Depends(get_db)):
+def register(body: AuthRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     employee_no = body.employee_no.strip()
     employee = db.query(Employee).filter(Employee.employee_no == employee_no).first()
     if not employee or employee.status != "active":
@@ -27,18 +27,18 @@ def register(body: AuthRequest, response: Response, db: Session = Depends(get_db
     db.add(user)
     db.commit()
     db.refresh(user)
-    create_session(user, db, response)
+    create_session(user, db, response, request)
     return user
 
 
 @router.post("/auth/login", response_model=UserResponse)
-def login(body: AuthRequest, response: Response, db: Session = Depends(get_db)):
+def login(body: AuthRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     employee_no = body.employee_no.strip()
     user = db.query(User).filter(User.employee_no == employee_no).first()
     employee = db.query(Employee).filter(Employee.employee_no == employee_no).first()
     if not user or not employee or employee.status != "active" or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="工号或密码错误")
-    create_session(user, db, response)
+    create_session(user, db, response, request)
     return user
 
 

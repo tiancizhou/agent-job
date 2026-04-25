@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     LLM_MODEL: str
     SERVER_PORT: int = 8000
     DATA_DIR: str = "./data"
+    DATABASE_URL: str = "sqlite:///./quickapp.db"
 
     class Config:
         env_file = ".env"

@@ -46,6 +46,10 @@ def create_app(
         name="新应用",
         status="creating",
         progress=None,
+        entry_path="index.html",
+        project_type="project",
+        visibility="private",
+        preview_token=None,
         version=0,
     )
     db.add(new_app)
@@ -78,7 +82,6 @@ def delete_app(app_id: str, current_user: User = Depends(get_current_user), db: 
     if not app:
         raise HTTPException(status_code=404, detail="App not found")
 
-    db.query(Conversation).filter(Conversation.app_id == app_id).delete()
     db.delete(app)
     db.commit()
 

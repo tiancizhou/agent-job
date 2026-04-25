@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import App, Employee, EmployeeResponse, Style, StyleResponse, User
+from models import App, Employee, EmployeeResponse, SessionToken, Style, StyleResponse, User
 from services.auth_service import require_admin
 
 router = APIRouter()
@@ -58,6 +58,9 @@ def disable_employee(
     if not employee:
         raise HTTPException(status_code=404, detail="工号不存在")
     employee.status = "disabled"
+    user = db.query(User).filter(User.employee_no == employee_no).first()
+    if user:
+        db.query(SessionToken).filter(SessionToken.user_id == user.id).delete()
     db.commit()
     db.refresh(employee)
     return employee

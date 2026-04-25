@@ -1,8 +1,29 @@
+from dataclasses import dataclass
 from typing import AsyncIterator
 
 import httpx
 
 from config import Settings
+
+
+@dataclass
+class TokenUsage:
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+
+
+@dataclass
+class ChatResult:
+    content: str
+    usage: TokenUsage | None = None
+
+
+@dataclass
+class StreamChatEvent:
+    content: str | None = None
+    usage: TokenUsage | None = None
+
 
 PROJECT_GENERATE_SYSTEM_PROMPT = """
 你是一个前端工程师。请生成一个多文件纯静态前端项目。
@@ -71,13 +92,41 @@ JSON 格式如下：
 """.strip()
 
 
-async def stream_chat(
+def parse_usage(data: dict) -> TokenUsage | None:
+    usage = data.get("usage")
+    if not isinstance(usage, dict):
+        return None
+    return TokenUsage(
+        prompt_tokens=int(usage.get("prompt_tokens") or 0),
+        completion_tokens=int(usage.get("completion_tokens") or 0),
+        total_tokens=int(usage.get("total_tokens") or 0),
+    )
+
+
+def parse_stream_chunk(chunk: dict) -> tuple[str | None, TokenUsage | None]:
+    usage = parse_usage(chunk)
+    choices = chunk.get("choices") or []
+    content = None
+    if choices:
+        delta = choices[0].get("delta", {})
+        content = delta.get("content")
+    return content, usage
+
+
+def parse_non_streaming_response(data: dict) -> ChatResult:
+    return ChatResult(
+        content=data["choices"][0]["message"]["content"],
+        usage=parse_usage(data),
+    )
+
+
+async def stream_chat_events(
     messages: list[dict],
     settings: Settings,
-) -> AsyncIterator[str]:
+) -> AsyncIterator[StreamChatEvent]:
     """
     Call an OpenAI-compatible chat completions endpoint with streaming.
-    Yields each content delta string as it arrives.
+    Yields content events and a usage event when the provider returns one.
     """
     url = f"{settings.LLM_BASE_URL.rstrip('/')}/chat/completions"
     headers = {
@@ -88,6 +137,7 @@ async def stream_chat(
         "model": settings.LLM_MODEL,
         "messages": messages,
         "stream": True,
+        "stream_options": {"include_usage": True},
     }
 
     async with httpx.AsyncClient(timeout=120.0) as client:
@@ -103,17 +153,24 @@ async def stream_chat(
                 try:
                     import json
                     chunk = json.loads(data)
-                    delta = chunk.get("choices", [{}])[0].get("delta", {})
-                    content = delta.get("content")
+                    content, usage = parse_stream_chunk(chunk)
                     if content:
-                        yield content
+                        yield StreamChatEvent(content=content)
+                    if usage:
+                        yield StreamChatEvent(usage=usage)
                 except (json.JSONDecodeError, IndexError, KeyError):
                     continue
 
 
-async def non_streaming_chat(messages: list[dict], settings: Settings) -> str:
+async def stream_chat(messages: list[dict], settings: Settings) -> AsyncIterator[str]:
+    async for event in stream_chat_events(messages, settings):
+        if event.content:
+            yield event.content
+
+
+async def non_streaming_chat_with_usage(messages: list[dict], settings: Settings) -> ChatResult:
     """
-    Call the chat completions endpoint without streaming and return the full reply.
+    Call the chat completions endpoint without streaming and return the full reply with usage when available.
     """
     url = f"{settings.LLM_BASE_URL.rstrip('/')}/chat/completions"
     headers = {
@@ -130,4 +187,8 @@ async def non_streaming_chat(messages: list[dict], settings: Settings) -> str:
         response = await client.post(url, headers=headers, json=payload)
         response.raise_for_status()
         data = response.json()
-        return data["choices"][0]["message"]["content"]
+        return parse_non_streaming_response(data)
+
+
+async def non_streaming_chat(messages: list[dict], settings: Settings) -> str:
+    return (await non_streaming_chat_with_usage(messages, settings)).content

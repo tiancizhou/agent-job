@@ -7,9 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from config import settings
-from database import get_db, initialize_database
+from database import get_db
 from models import App, User
-from routers import admin, apps, auth, chat, styles
+from routers import admin, apps, auth, chat, styles, usage
 from services import code_service
 from services.auth_service import get_current_user
 
@@ -22,13 +22,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-initialize_database()
-
 app.include_router(auth.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(apps.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(styles.router, prefix="/api")
+app.include_router(usage.router, prefix="/api")
 
 # Serve generated apps at /apps/{app_id}/
 data_dir = settings.DATA_DIR

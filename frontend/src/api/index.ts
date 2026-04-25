@@ -6,6 +6,10 @@ export interface App {
   status: "creating" | "editing" | "active" | "failed" | "edit_failed"
   progress?: string | null
   style_id?: string | null
+  entry_path: string
+  project_type: "html" | "project"
+  visibility: "private" | "public" | "token"
+  preview_token?: string | null
   version: number
   created_at: string
   updated_at: string
@@ -18,14 +22,16 @@ export interface Style {
   sort_order: number
   is_active?: boolean
   created_at?: string | null
+  updated_at?: string | null
 }
 
 export interface Conversation {
   id: string
   app_id: string
-  role: "user" | "assistant" | "system"
+  role: "user" | "assistant"
   content: string
   created_at: string
+  updated_at: string
 }
 
 export interface CurrentUser {
@@ -38,6 +44,36 @@ export interface Employee {
   name: string
   status: "active" | "disabled"
   created_at: string
+  updated_at: string
+}
+
+export interface UsageSummary {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  record_count: number
+  estimated_record_count: number
+  successful_record_count: number
+  failed_record_count: number
+  first_record_at?: string | null
+  last_record_at?: string | null
+}
+
+export interface UsageRecord {
+  id: string
+  app_id?: string | null
+  app_name?: string | null
+  action: "name" | "generate" | "edit" | string
+  provider: string
+  model: string
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  cost: number
+  is_estimated: boolean
+  status: "success" | "failed" | string
+  created_at: string
+  updated_at: string
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -148,6 +184,14 @@ export async function listConversations(appId: string): Promise<Conversation[]> 
 
 export async function getAppPreview(appId: string): Promise<{ url: string }> {
   return request<{ url: string }>(`/apps/${appId}/preview`)
+}
+
+export async function getUsageSummary(): Promise<UsageSummary> {
+  return request<UsageSummary>("/usage/summary")
+}
+
+export async function listUsageRecords(limit = 20, offset = 0): Promise<UsageRecord[]> {
+  return request<UsageRecord[]>(`/usage/records?limit=${limit}&offset=${offset}`)
 }
 
 // Calls POST /api/apps/:id/chat via fetch with SSE parsing.

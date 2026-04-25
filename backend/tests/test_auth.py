@@ -3,8 +3,11 @@ import os
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
 from fastapi.testclient import TestClient
 
 
@@ -25,8 +28,12 @@ def load_app(tmpdir: str):
             sys.modules.pop(name, None)
 
     try:
+        alembic_cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+        command.upgrade(alembic_cfg, "head")
         main = importlib.import_module("main")
-        return main.app, importlib.import_module("database"), importlib.import_module("models")
+        database = importlib.import_module("database")
+        models = importlib.import_module("models")
+        return main.app, database, models
     finally:
         os.chdir(old_cwd)
 
@@ -50,21 +57,19 @@ class AuthTestCase(unittest.TestCase):
     def test_unknown_employee_cannot_set_password(self):
         response = self.client.post(
             "/api/auth/register",
-            json={"employee_no": "64004", "password": "123456"},
+            json={"employee_no": "64022", "password": "123456"},
         )
         self.assertEqual(403, response.status_code)
 
-    def test_admin_can_create_employee_after_login(self):
-        db = self.database.SessionLocal()
-        try:
-            employee = self.models.Employee(employee_no="64003", name="管理员", status="active")
-            admin = self.models.User(employee_no="64003", password_hash=self.models.hash_password("123456"), is_admin=True)
-            db.add(employee)
-            db.add(admin)
-            db.commit()
-        finally:
-            db.close()
+    def test_default_admin_can_login_after_database_initialization(self):
+        response = self.client.post(
+            "/api/auth/login",
+            json={"employee_no": "64003", "password": "123456"},
+        )
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(response.json()["is_admin"])
 
+    def test_admin_can_create_employee_after_login(self):
         login = self.client.post(
             "/api/auth/login",
             json={"employee_no": "64003", "password": "123456"},
@@ -73,23 +78,89 @@ class AuthTestCase(unittest.TestCase):
 
         created = self.client.post(
             "/api/admin/employees",
-            json={"employee_no": "64004", "name": "测试用户"},
+            json={"employee_no": "64022", "name": "测试用户"},
         )
         self.assertEqual(201, created.status_code)
-        self.assertEqual("64004", created.json()["employee_no"])
+        self.assertEqual("64022", created.json()["employee_no"])
 
-    def create_two_users_and_one_app(self):
+    def test_disabled_employee_existing_session_cannot_authenticate(self):
         db = self.database.SessionLocal()
         try:
-            db.add(self.models.Employee(employee_no="64003", name="用户一", status="active"))
-            db.add(self.models.Employee(employee_no="64004", name="用户二", status="active"))
-            db.add(self.models.User(employee_no="64003", password_hash=self.models.hash_password("123456"), is_admin=False))
-            db.add(self.models.User(employee_no="64004", password_hash=self.models.hash_password("123456"), is_admin=False))
+            db.add(self.models.Employee(employee_no="64021", name="用户一", status="active"))
+            db.add(self.models.User(employee_no="64021", password_hash=self.models.hash_password("123456"), is_admin=False))
             db.commit()
         finally:
             db.close()
 
-        self.client.post("/api/auth/login", json={"employee_no": "64003", "password": "123456"})
+        user_client = TestClient(self.client.app)
+        response = user_client.post("/api/auth/login", json={"employee_no": "64021", "password": "123456"})
+        self.assertEqual(200, response.status_code)
+        response = user_client.get("/api/auth/me")
+        self.assertEqual(200, response.status_code)
+
+        admin_client = TestClient(self.client.app)
+        admin_login = admin_client.post("/api/auth/login", json={"employee_no": "64003", "password": "123456"})
+        self.assertEqual(200, admin_login.status_code)
+        disabled = admin_client.post("/api/admin/employees/64021/disable")
+        self.assertEqual(200, disabled.status_code)
+
+        response = user_client.get("/api/auth/me")
+        self.assertEqual(401, response.status_code)
+
+    def test_login_stores_session_ip_and_user_agent(self):
+        response = self.client.post(
+            "/api/auth/login",
+            json={"employee_no": "64003", "password": "123456"},
+            headers={"User-Agent": "QuickAppTest/1.0"},
+        )
+        self.assertEqual(200, response.status_code)
+
+        db = self.database.SessionLocal()
+        try:
+            session = db.query(self.models.SessionToken).first()
+            self.assertIsNotNone(session)
+            self.assertIsNotNone(session.ip_address)
+            self.assertEqual("QuickAppTest/1.0", session.user_agent)
+        finally:
+            db.close()
+
+    def test_expired_session_cannot_authenticate(self):
+        db = self.database.SessionLocal()
+        try:
+            user = db.query(self.models.User).filter(self.models.User.employee_no == "64003").first()
+            session = self.models.SessionToken(
+                id="expired-session",
+                user_id=user.id,
+                expires_at=datetime.utcnow() - timedelta(days=1),
+            )
+            db.add(session)
+            db.commit()
+        finally:
+            db.close()
+
+        self.client.cookies.set("quickapp_session", "expired-session")
+        response = self.client.get("/api/auth/me")
+        self.assertEqual(401, response.status_code)
+
+        db = self.database.SessionLocal()
+        try:
+            session = db.query(self.models.SessionToken).filter(self.models.SessionToken.id == "expired-session").first()
+            self.assertIsNone(session)
+        finally:
+            db.close()
+
+    def create_two_users_and_one_app(self):
+        db = self.database.SessionLocal()
+        try:
+            db.add(self.models.Employee(employee_no="64021", name="用户一", status="active"))
+            db.add(self.models.Employee(employee_no="64022", name="用户二", status="active"))
+            db.add(self.models.User(employee_no="64021", password_hash=self.models.hash_password("123456"), is_admin=False))
+            db.add(self.models.User(employee_no="64022", password_hash=self.models.hash_password("123456"), is_admin=False))
+            db.commit()
+        finally:
+            db.close()
+
+        self.client.post("/api/auth/login", json={"employee_no": "64021", "password": "123456"})
         app_response = self.client.post("/api/apps")
         self.assertEqual(201, app_response.status_code)
         app_id = app_response.json()["id"]
@@ -106,7 +177,7 @@ class AuthTestCase(unittest.TestCase):
     def test_user_only_sees_own_apps(self):
         app_id = self.create_two_users_and_one_app()
 
-        self.client.post("/api/auth/login", json={"employee_no": "64004", "password": "123456"})
+        self.client.post("/api/auth/login", json={"employee_no": "64022", "password": "123456"})
         apps = self.client.get("/api/apps")
         self.assertEqual([], apps.json())
         other_app = self.client.get(f"/api/apps/{app_id}")
@@ -122,7 +193,7 @@ class AuthTestCase(unittest.TestCase):
         self.assertEqual(200, anonymous.status_code)
         self.assertIn("owned", anonymous.text)
 
-        self.client.post("/api/auth/login", json={"employee_no": "64004", "password": "123456"})
+        self.client.post("/api/auth/login", json={"employee_no": "64022", "password": "123456"})
         other_user = self.client.get(f"/apps/{app_id}/")
         self.assertEqual(200, other_user.status_code)
         self.assertIn("owned", other_user.text)
@@ -144,7 +215,7 @@ class AuthTestCase(unittest.TestCase):
         self.assertEqual("no-store", anonymous_css.headers["cache-control"])
         self.assertEqual("body { color: red; }", anonymous_css.text)
 
-        self.client.post("/api/auth/login", json={"employee_no": "64004", "password": "123456"})
+        self.client.post("/api/auth/login", json={"employee_no": "64022", "password": "123456"})
         other_user = self.client.get(f"/generated/{app_id}/project/index.html")
         self.assertEqual(200, other_user.status_code)
         self.assertIn("stylesheet", other_user.text)
@@ -188,11 +259,24 @@ class AuthTestCase(unittest.TestCase):
         app_id = self.create_two_users_and_one_app()
         db = self.database.SessionLocal()
         try:
+            app = db.query(self.models.App).filter(self.models.App.id == app_id).first()
             db.add(self.models.Conversation(
                 id="delete-conversation-1",
                 app_id=app_id,
                 role="user",
                 content="删除测试",
+            ))
+            db.add(self.models.UsageRecord(
+                id="delete-usage-1",
+                user_id=app.user_id,
+                app_id=app_id,
+                action="generate",
+                model="test-model",
+                prompt_tokens=1,
+                completion_tokens=2,
+                total_tokens=3,
+                is_estimated=True,
+                status="success",
             ))
             db.commit()
         finally:
@@ -202,7 +286,7 @@ class AuthTestCase(unittest.TestCase):
         html_dir.mkdir(parents=True)
         (html_dir / "index.html").write_text("<html>delete me</html>", encoding="utf-8")
 
-        self.client.post("/api/auth/login", json={"employee_no": "64003", "password": "123456"})
+        self.client.post("/api/auth/login", json={"employee_no": "64021", "password": "123456"})
         response = self.client.delete(f"/api/apps/{app_id}")
         self.assertEqual(200, response.status_code)
         self.assertEqual({"ok": True}, response.json())
@@ -211,6 +295,9 @@ class AuthTestCase(unittest.TestCase):
         try:
             self.assertIsNone(db.query(self.models.App).filter(self.models.App.id == app_id).first())
             self.assertEqual(0, db.query(self.models.Conversation).filter(self.models.Conversation.app_id == app_id).count())
+            usage = db.query(self.models.UsageRecord).filter(self.models.UsageRecord.id == "delete-usage-1").first()
+            self.assertIsNotNone(usage)
+            self.assertIsNone(usage.app_id)
         finally:
             db.close()
         self.assertFalse(html_dir.exists())
@@ -218,7 +305,7 @@ class AuthTestCase(unittest.TestCase):
     def test_user_cannot_delete_other_users_app(self):
         app_id = self.create_two_users_and_one_app()
 
-        self.client.post("/api/auth/login", json={"employee_no": "64004", "password": "123456"})
+        self.client.post("/api/auth/login", json={"employee_no": "64022", "password": "123456"})
         response = self.client.delete(f"/api/apps/{app_id}")
         self.assertEqual(404, response.status_code)
 
@@ -254,13 +341,21 @@ class AuthTestCase(unittest.TestCase):
         project_reply = '{"files":[{"path":"index.html","content":"<html><link rel=\\"stylesheet\\" href=\\"css/style.css\\"></html>"},{"path":"css/style.css","content":"body { color: green; }"}]}'
 
         async def stream_project(messages, settings):
-            yield project_reply
+            yield ai_service.StreamChatEvent(content=project_reply)
+            yield ai_service.StreamChatEvent(usage=ai_service.TokenUsage(prompt_tokens=11, completion_tokens=7, total_tokens=18))
 
         db_gen = self.database.SessionLocal()
         try:
             app = db_gen.query(self.models.App).filter(self.models.App.id == app_id).first()
-            with patch.object(ai_service, "stream_chat", stream_project):
-                with patch.object(ai_service, "non_streaming_chat", return_value="项目"):
+            with patch.object(ai_service, "stream_chat_events", stream_project):
+                with patch.object(
+                    ai_service,
+                    "non_streaming_chat_with_usage",
+                    return_value=ai_service.ChatResult(
+                        content="项目",
+                        usage=ai_service.TokenUsage(prompt_tokens=3, completion_tokens=2, total_tokens=5),
+                    ),
+                ):
                     events = []
                     async def _run():
                         async for event in app_service.handle_chat(app, "生成多页面项目", db_gen, Settings()):
@@ -272,6 +367,126 @@ class AuthTestCase(unittest.TestCase):
         project_dir = Path(self.tmp.name) / "data" / "apps" / app_id / "project"
         self.assertEqual("body { color: green; }", (project_dir / "css" / "style.css").read_text(encoding="utf-8"))
         self.assertTrue(any(f"/generated/{app_id}/project/index.html" in event for event in events))
+
+        db = self.database.SessionLocal()
+        try:
+            usage = db.query(self.models.UsageRecord).filter(self.models.UsageRecord.app_id == app_id).all()
+            self.assertEqual(2, len(usage))
+            self.assertEqual({"name", "generate"}, {record.action for record in usage})
+            self.assertTrue(all(record.total_tokens > 0 for record in usage))
+            usage_by_action = {record.action: record for record in usage}
+            self.assertEqual(5, usage_by_action["name"].total_tokens)
+            self.assertEqual(18, usage_by_action["generate"].total_tokens)
+            self.assertFalse(usage_by_action["name"].is_estimated)
+            self.assertFalse(usage_by_action["generate"].is_estimated)
+            for record in usage:
+                self.assertEqual("unknown", record.provider)
+                self.assertEqual(0, float(record.cost))
+        finally:
+            db.close()
+
+    def test_invalid_generation_output_records_failed_usage(self):
+        db = self.database.SessionLocal()
+        try:
+            db.add(self.models.Employee(employee_no="64016", name="解析失败", status="active"))
+            db.add(self.models.User(
+                employee_no="64016",
+                password_hash=self.models.hash_password("123456"),
+                is_admin=False,
+            ))
+            db.commit()
+        finally:
+            db.close()
+
+        self.client.post("/api/auth/login", json={"employee_no": "64016", "password": "123456"})
+        create_resp = self.client.post("/api/apps")
+        self.assertEqual(201, create_resp.status_code)
+        app_id = create_resp.json()["id"]
+
+        import asyncio
+        from unittest.mock import patch
+        from config import Settings
+        from services import ai_service, app_service
+
+        async def invalid_stream(messages, settings):
+            yield ai_service.StreamChatEvent(content="not json and not html")
+            yield ai_service.StreamChatEvent(usage=ai_service.TokenUsage(prompt_tokens=8, completion_tokens=4, total_tokens=12))
+
+        db_gen = self.database.SessionLocal()
+        try:
+            app = db_gen.query(self.models.App).filter(self.models.App.id == app_id).first()
+            with patch.object(ai_service, "stream_chat_events", invalid_stream):
+                with patch.object(ai_service, "non_streaming_chat_with_usage", return_value=ai_service.ChatResult(content="坏输出")):
+                    async def _run():
+                        async for _ in app_service.handle_chat(app, "生成坏输出", db_gen, Settings()):
+                            pass
+                    asyncio.run(_run())
+        finally:
+            db_gen.close()
+
+        db = self.database.SessionLocal()
+        try:
+            usage = db.query(self.models.UsageRecord).filter(
+                self.models.UsageRecord.app_id == app_id,
+                self.models.UsageRecord.action == "generate",
+            ).first()
+            self.assertIsNotNone(usage)
+            self.assertEqual("failed", usage.status)
+            self.assertEqual(12, usage.total_tokens)
+            self.assertFalse(usage.is_estimated)
+        finally:
+            db.close()
+
+    def test_failed_background_generation_records_failed_usage(self):
+        db = self.database.SessionLocal()
+        try:
+            db.add(self.models.Employee(employee_no="64015", name="失败测试", status="active"))
+            db.add(self.models.User(
+                employee_no="64015",
+                password_hash=self.models.hash_password("123456"),
+                is_admin=False,
+            ))
+            db.commit()
+        finally:
+            db.close()
+
+        self.client.post("/api/auth/login", json={"employee_no": "64015", "password": "123456"})
+        create_resp = self.client.post("/api/apps")
+        self.assertEqual(201, create_resp.status_code)
+        app_id = create_resp.json()["id"]
+
+        import asyncio
+        from unittest.mock import patch
+        from config import Settings
+        from services import ai_service, app_service
+
+        async def failing_stream(messages, settings):
+            yield ai_service.StreamChatEvent(content="partial")
+            raise RuntimeError("provider failed")
+
+        db_gen = self.database.SessionLocal()
+        try:
+            app = db_gen.query(self.models.App).filter(self.models.App.id == app_id).first()
+            with patch.object(ai_service, "stream_chat_events", failing_stream):
+                with patch.object(ai_service, "non_streaming_chat_with_usage", return_value=ai_service.ChatResult(content="失败页")):
+                    async def _run():
+                        async for _ in app_service.handle_chat(app, "生成失败页", db_gen, Settings()):
+                            pass
+                    asyncio.run(_run())
+        finally:
+            db_gen.close()
+
+        db = self.database.SessionLocal()
+        try:
+            usage = db.query(self.models.UsageRecord).filter(
+                self.models.UsageRecord.app_id == app_id,
+                self.models.UsageRecord.action == "generate",
+            ).first()
+            self.assertIsNotNone(usage)
+            self.assertEqual("failed", usage.status)
+            self.assertGreater(usage.total_tokens, 0)
+        finally:
+            db.close()
 
     def test_background_generation_finishes_after_disconnect(self):
         db = self.database.SessionLocal()
@@ -300,8 +515,8 @@ class AuthTestCase(unittest.TestCase):
 
         async def slow_stream(messages, settings):
             for word in html_body.split():
-                yield word + " "
-            yield "\n"
+                yield ai_service.StreamChatEvent(content=word + " ")
+            yield ai_service.StreamChatEvent(content="\n")
 
         generation_done = threading.Event()
 
@@ -314,8 +529,8 @@ class AuthTestCase(unittest.TestCase):
                 db_gen = SL()
                 try:
                     app = db_gen.query(AppModel).filter(AppModel.id == app_id).first()
-                    with patch.object(ai_service, "stream_chat", slow_stream):
-                        with patch.object(ai_service, "non_streaming_chat", return_value="测试"):
+                    with patch.object(ai_service, "stream_chat_events", slow_stream):
+                        with patch.object(ai_service, "non_streaming_chat_with_usage", return_value=ai_service.ChatResult(content="测试")):
                             async for _ in app_service.handle_chat(app, "生成测试页", db_gen, Settings()):
                                 pass
                 finally:

@@ -1,17 +1,22 @@
 from datetime import datetime, timedelta
 
-from fastapi import Cookie, Depends, HTTPException, Response
+from fastapi import Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import SessionToken, User
+from models import Employee, SessionToken, User
 
 SESSION_COOKIE = "quickapp_session"
 SESSION_DAYS = 7
 
 
-def create_session(user: User, db: Session, response: Response) -> None:
-    session = SessionToken(user_id=user.id, expires_at=datetime.utcnow() + timedelta(days=SESSION_DAYS))
+def create_session(user: User, db: Session, response: Response, request: Request) -> None:
+    session = SessionToken(
+        user_id=user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        expires_at=datetime.utcnow() + timedelta(days=SESSION_DAYS),
+    )
     db.add(session)
     db.commit()
     response.set_cookie(
@@ -44,6 +49,13 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Not authenticated")
     user = db.query(User).filter(User.id == session.user_id).first()
     if not user:
+        db.delete(session)
+        db.commit()
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    employee = db.query(Employee).filter(Employee.employee_no == user.employee_no).first()
+    if not employee or employee.status != "active":
+        db.delete(session)
+        db.commit()
         raise HTTPException(status_code=401, detail="Not authenticated")
     return user
 

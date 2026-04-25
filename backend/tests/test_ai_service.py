@@ -13,6 +13,28 @@ from services import ai_service
 
 
 class AiServicePromptTestCase(unittest.TestCase):
+    def test_parse_non_streaming_response_returns_content_and_usage(self):
+        result = ai_service.parse_non_streaming_response({
+            "choices": [{"message": {"content": "应用"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 3, "total_tokens": 13},
+        })
+
+        self.assertEqual("应用", result.content)
+        self.assertEqual(10, result.usage.prompt_tokens)
+        self.assertEqual(3, result.usage.completion_tokens)
+        self.assertEqual(13, result.usage.total_tokens)
+
+    def test_parse_stream_chunk_returns_usage_without_content(self):
+        content, usage = ai_service.parse_stream_chunk({
+            "choices": [],
+            "usage": {"prompt_tokens": 20, "completion_tokens": 30, "total_tokens": 50},
+        })
+
+        self.assertIsNone(content)
+        self.assertEqual(20, usage.prompt_tokens)
+        self.assertEqual(30, usage.completion_tokens)
+        self.assertEqual(50, usage.total_tokens)
+
     def test_project_generation_prompt_requires_mobile_first_output(self):
         prompt = ai_service.PROJECT_GENERATE_SYSTEM_PROMPT
 
