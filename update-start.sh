@@ -10,4 +10,4 @@ cd "$ROOT_DIR/frontend"
 npm run build
 
 cd "$ROOT_DIR/backend"
-exec ./start.sh
+exec bash ./start.sh
