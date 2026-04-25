@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     SERVER_PORT: int = 8000
     DATA_DIR: str = "./data"
     DATABASE_URL: str = "sqlite:///./quickapp.db"
+    GENERATION_MAX_CONCURRENT: int = 10
 
     class Config:
         env_file = ".env"

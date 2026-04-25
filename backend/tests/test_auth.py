@@ -385,6 +385,59 @@ class AuthTestCase(unittest.TestCase):
         finally:
             db.close()
 
+    def test_generation_returns_busy_result_when_concurrency_limit_is_reached(self):
+        db = self.database.SessionLocal()
+        try:
+            db.add(self.models.Employee(employee_no="64017", name="限流测试", status="active"))
+            db.add(self.models.User(
+                employee_no="64017",
+                password_hash=self.models.hash_password("123456"),
+                is_admin=False,
+            ))
+            db.commit()
+        finally:
+            db.close()
+
+        self.client.post("/api/auth/login", json={"employee_no": "64017", "password": "123456"})
+        create_resp = self.client.post("/api/apps")
+        self.assertEqual(201, create_resp.status_code)
+        app_id = create_resp.json()["id"]
+
+        import asyncio
+        from unittest.mock import patch
+        from config import Settings
+        from services import ai_service, app_service
+
+        async def stream_should_not_run(messages, settings):
+            raise AssertionError("LLM should not be called when generation limit is reached")
+            yield ai_service.StreamChatEvent(content="")
+
+        db_gen = self.database.SessionLocal()
+        try:
+            app = db_gen.query(self.models.App).filter(self.models.App.id == app_id).first()
+            settings = Settings(GENERATION_MAX_CONCURRENT=0)
+            with patch.object(ai_service, "stream_chat_events", stream_should_not_run):
+                events = []
+                async def _run():
+                    async for event in app_service.handle_chat(app, "生成限流页", db_gen, settings):
+                        events.append(event)
+                asyncio.run(_run())
+        finally:
+            db_gen.close()
+
+        self.assertTrue(any("当前生成任务较多" in event for event in events))
+        self.assertTrue(any('"status": "busy"' in event for event in events))
+
+        db = self.database.SessionLocal()
+        try:
+            app = db.query(self.models.App).filter(self.models.App.id == app_id).first()
+            self.assertEqual("failed", app.status)
+            self.assertIsNone(app.progress)
+            self.assertEqual(0, app.version)
+            self.assertEqual(0, db.query(self.models.UsageRecord).filter(self.models.UsageRecord.app_id == app_id).count())
+        finally:
+            db.close()
+
     def test_invalid_generation_output_records_failed_usage(self):
         db = self.database.SessionLocal()
         try:

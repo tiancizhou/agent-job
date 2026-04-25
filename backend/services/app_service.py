@@ -38,6 +38,8 @@ class GenerationState:
 
 
 _generation_states: dict[str, GenerationState] = {}
+_generation_semaphore: asyncio.Semaphore | None = None
+_generation_semaphore_limit: int | None = None
 
 
 async def handle_chat(
@@ -126,6 +128,67 @@ async def _run_html_generation(
             await _publish(state, "result", {"url": None, "status": "failed"})
             return
 
+        semaphore = _get_generation_semaphore(settings.GENERATION_MAX_CONCURRENT)
+        if semaphore.locked():
+            app.status = "failed" if (app.version or 0) == 0 else "edit_failed"
+            app.progress = None
+            state.status = "busy"
+            db.commit()
+            await _publish(state, "message", {"content": "当前生成任务较多，请稍后再试。"})
+            return
+
+        async with semaphore:
+            await _generate_with_limit(app, user_message, settings, state, db)
+            return
+
+    except Exception:
+        app = db.query(App).filter(App.id == app_id).first()
+        if app:
+            if messages:
+                _record_usage(
+                    db=db,
+                    app=app,
+                    action=action,
+                    messages=messages,
+                    reply_text="".join(full_reply),
+                    settings=settings,
+                    usage=stream_usage,
+                    status="failed",
+                )
+            app.status = "failed" if (app.version or 0) == 0 else "edit_failed"
+            app.progress = None
+            db.commit()
+    finally:
+        app = db.query(App).filter(App.id == app_id).first()
+        state.done = True
+        state.status = state.status or (app.status if app else "failed")
+        state.url = _active_app_url(app_id, settings) if app and app.status in {"active", "edit_failed"} and (app.version or 0) > 0 else None
+        await _publish(state, "result", {"url": state.url, "status": state.status})
+        db.close()
+
+
+def _get_generation_semaphore(limit: int) -> asyncio.Semaphore:
+    global _generation_semaphore, _generation_semaphore_limit
+    normalized_limit = max(0, limit)
+    if _generation_semaphore is None or _generation_semaphore_limit != normalized_limit:
+        _generation_semaphore = asyncio.Semaphore(normalized_limit)
+        _generation_semaphore_limit = normalized_limit
+    return _generation_semaphore
+
+
+async def _generate_with_limit(
+    app: App,
+    user_message: str,
+    settings: Settings,
+    state: GenerationState,
+    db: Session,
+) -> None:
+    messages: list[dict] = []
+    full_reply: list[str] = []
+    stream_usage: ai_service.TokenUsage | None = None
+    action = "generate"
+    app_id = app.id
+    try:
         is_first = app.version == 0
         action = "generate" if is_first else "edit"
         if is_first:
@@ -196,13 +259,6 @@ async def _run_html_generation(
             app.status = "failed" if (app.version or 0) == 0 else "edit_failed"
             app.progress = None
             db.commit()
-    finally:
-        app = db.query(App).filter(App.id == app_id).first()
-        state.done = True
-        state.status = app.status if app else "failed"
-        state.url = _active_app_url(app_id, settings) if app and app.status in {"active", "edit_failed"} and (app.version or 0) > 0 else None
-        await _publish(state, "result", {"url": state.url, "status": state.status})
-        db.close()
 
 
 def _build_project_messages(
