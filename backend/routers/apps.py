@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from config import settings
 from database import get_db
 from models import App, AppResponse, Conversation, ConversationResponse, Style, User
+from services import code_service
 from services.auth_service import get_current_user
 
 router = APIRouter()
@@ -107,8 +108,11 @@ def get_app_preview(app_id: str, current_user: User = Depends(get_current_user),
     app = db.query(App).filter(App.id == app_id, App.user_id == current_user.id).first()
     if not app:
         raise HTTPException(status_code=404, detail="App not found")
-    if app.status != "active":
+    if app.status not in {"active", "editing", "edit_failed"} or (app.version or 0) <= 0:
         raise HTTPException(status_code=404, detail="App is not active")
+    project_index = code_service.project_dir_for(app_id, settings.DATA_DIR) / "index.html"
+    if project_index.exists():
+        return {"url": f"/generated/{app_id}/project/index.html"}
     return {"url": f"/apps/{app_id}/"}
 
 

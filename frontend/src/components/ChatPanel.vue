@@ -233,6 +233,7 @@
               v-if="previewUrl"
               class="preview-card__iframe"
               :src="previewUrl"
+              sandbox="allow-scripts allow-forms allow-popups"
               title="应用预览"
             />
             <div v-else class="preview-card__placeholder" :class="`preview-card__placeholder--${currentApp?.status || 'creating'}`">
@@ -250,7 +251,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from "vue"
 import MessageBubble from "./MessageBubble.vue"
-import { createApp, getApp, listConversations, sendChat, setAppStyle, type App, type Style } from "../api/index"
+import { createApp, getApp, getAppPreview, listConversations, sendChat, setAppStyle, type App, type Style } from "../api/index"
 
 const props = withDefaults(defineProps<{
   selectedAppId: string | null
@@ -288,6 +289,7 @@ const streamProgress = ref("")
 const isChatCollapsed = ref(false)
 const currentAppId = ref<string | null>(null)
 const currentApp = ref<App | null>(null)
+const currentPreviewBaseUrl = ref<string | null>(null)
 const messagesContainer = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const pointerX = ref(50)
@@ -315,9 +317,13 @@ const heroStyle = computed(() => ({
   "--shift-y": `${(pointerY.value - 50) / 7}px`,
 }))
 
-const previewUrl = computed(() => (
-  (currentApp.value?.status === "active" || currentApp.value?.status === "editing") && currentAppId.value ? `/apps/${currentAppId.value}/` : null
-))
+const previewUrl = computed(() => {
+  if (!currentAppId.value || !currentApp.value) return null
+  if (currentApp.value.status === "active" || (currentApp.value.status === "editing" && currentApp.value.version > 0) || currentApp.value.status === "edit_failed") {
+    return cacheBustPreviewUrl(currentPreviewBaseUrl.value || projectPreviewUrl(currentAppId.value), currentApp.value.version)
+  }
+  return null
+})
 
 const previewTitle = computed(() => {
   if (currentApp.value?.status === "failed") return "应用生成失败"
@@ -352,6 +358,7 @@ watch(
       messages.value = []
       currentAppId.value = null
       currentApp.value = null
+      currentPreviewBaseUrl.value = null
       isChatCollapsed.value = false
       return
     }
@@ -366,6 +373,7 @@ watch(
       ])
       currentApp.value = app
       selectedStyleId.value = app.style_id || null
+      await refreshPreviewBaseUrl(newId, app)
 
       if (app.status === "creating" || app.status === "editing") {
         streamProgress.value = app.progress || "正在生成中..."
@@ -389,11 +397,11 @@ watch(
 
       const lastAssistant = [...loadedMessages].reverse().find((message) => message.role === "assistant")
       if (lastAssistant) {
-        if (looksLikeGeneratedHtml(lastAssistant.content) && app.status === "active") {
-          lastAssistant.content = "生成完成，可以通过下方链接访问。"
+        if (looksLikeGeneratedArtifact(lastAssistant.content) && app.status === "active") {
+          lastAssistant.content = "应用已生成或更新，可以在右侧预览。"
         }
         lastAssistant.resultStatus = app.status
-        lastAssistant.resultUrl = app.status === "active" ? `/apps/${newId}/` : null
+        lastAssistant.resultUrl = app.status === "active" ? cacheBustPreviewUrl(currentPreviewBaseUrl.value || projectPreviewUrl(newId), app.version) : null
       }
       if (app.status === "creating") {
         if (!lastAssistant) {
@@ -483,11 +491,6 @@ async function sendMessage() {
         streamProgress.value = ""
         const appMessages = messageCache.value[appId]
         const last = appMessages?.[appMessages.length - 1]
-        if (last && last.role === "assistant") {
-          last.content = status === "active" ? "生成完成，可以通过下方链接访问。" : "生成失败，请重新描述需求后再试。"
-          last.resultUrl = url
-          last.resultStatus = status
-        }
         let updatedApp = currentApp.value
         try {
           updatedApp = await getApp(appId)
@@ -496,7 +499,13 @@ async function sendMessage() {
         }
         if (updatedApp) {
           currentApp.value = updatedApp
+          await refreshPreviewBaseUrl(appId, updatedApp, url)
           emit("app-updated", updatedApp)
+        }
+        if (last && last.role === "assistant") {
+          last.content = status === "active" ? "应用已生成或更新，可以在右侧预览。" : normalizeGeneratedContent(last.content, status)
+          last.resultUrl = status === "active" ? resultPreviewUrl(appId, url, updatedApp?.version) : null
+          last.resultStatus = status
         }
         if (currentAppId.value === appId) {
           messages.value = appMessages
@@ -512,7 +521,7 @@ async function sendMessage() {
     const last = appMessages?.[appMessages.length - 1]
     if (last && last.role === "assistant") {
       last.content = last.content || "发生错误，请重试。"
-      last.resultStatus = "failed"
+      last.resultStatus = currentApp.value?.version ? "edit_failed" : "failed"
     }
     if (currentAppId.value === appId) {
       messages.value = appMessages
@@ -555,16 +564,19 @@ async function resumeGeneratingApp(appId: string) {
         streamProgress.value = ""
         const currentMessages = messageCache.value[appId]
         const target = currentMessages?.[resumeStream?.messageIndex ?? -1]
-        if (target && target.role === "assistant") {
-          target.content = status === "active" ? "生成完成，可以通过下方链接访问。" : "生成失败，请重新描述需求后再试。"
-          target.resultUrl = url
-          target.resultStatus = status
-        }
+        let updatedApp: App | null = null
         try {
-          currentApp.value = await getApp(appId)
-          emit("app-updated", currentApp.value)
+          updatedApp = await getApp(appId)
+          currentApp.value = updatedApp
+          await refreshPreviewBaseUrl(appId, updatedApp, url)
+          emit("app-updated", updatedApp)
         } catch {
           currentApp.value = null
+        }
+        if (target && target.role === "assistant") {
+          target.content = status === "active" ? "应用已生成或更新，可以在右侧预览。" : normalizeGeneratedContent(target.content, status)
+          target.resultUrl = status === "active" ? resultPreviewUrl(appId, url, updatedApp?.version) : null
+          target.resultStatus = status
         }
         if (currentAppId.value === appId) {
           messages.value = currentMessages
@@ -580,8 +592,46 @@ async function resumeGeneratingApp(appId: string) {
   }
 }
 
-function looksLikeGeneratedHtml(content: string): boolean {
-  return content.includes("```html") || content.includes("<!DOCTYPE html") || content.includes("<html")
+function projectPreviewUrl(appId: string): string {
+  return `/generated/${appId}/project/index.html`
+}
+
+function cacheBustPreviewUrl(url: string, version?: number | null): string {
+  const separator = url.includes("?") ? "&" : "?"
+  return `${url}${separator}t=${version || Date.now()}`
+}
+
+function resultPreviewUrl(appId: string, url: string | null, version?: number | null): string {
+  return cacheBustPreviewUrl(url || currentPreviewBaseUrl.value || projectPreviewUrl(appId), version)
+}
+
+async function refreshPreviewBaseUrl(appId: string, app: App, fallbackUrl?: string | null): Promise<void> {
+  if (!["active", "editing", "edit_failed"].includes(app.status) || app.version <= 0) return
+  if (fallbackUrl) {
+    currentPreviewBaseUrl.value = fallbackUrl
+    return
+  }
+  try {
+    const preview = await getAppPreview(appId)
+    currentPreviewBaseUrl.value = preview.url
+  } catch {
+    currentPreviewBaseUrl.value = projectPreviewUrl(appId)
+  }
+}
+
+function normalizeGeneratedContent(content: string, status: string): string {
+  if (status === "active" && looksLikeGeneratedArtifact(content)) return "应用已生成或更新，可以在右侧预览。"
+  if (status !== "active" && content.length > 3000 && looksLikeGeneratedArtifact(content)) return "生成失败，模型返回的项目格式无法解析。请调整需求后重试。"
+  return content
+}
+
+function looksLikeGeneratedArtifact(content: string): boolean {
+  return content.includes("```html")
+    || content.includes("```json")
+    || content.includes('"files"')
+    || content.includes('"changes"')
+    || content.includes("<!DOCTYPE html")
+    || content.includes("<html")
 }
 
 function stopStatusPolling() {
@@ -598,6 +648,7 @@ function startStatusPolling(appId: string) {
       const app = await getApp(appId)
       if (currentAppId.value === appId) {
         currentApp.value = app
+        await refreshPreviewBaseUrl(appId, app)
         if ((app.status === "creating" || app.status === "editing") && app.progress) {
           streamProgress.value = app.progress
         }
@@ -633,15 +684,12 @@ function startStatusPolling(appId: string) {
 
       const lastAssistant = [...loadedMessages].reverse().find((message) => message.role === "assistant")
       if (lastAssistant) {
-        if (looksLikeGeneratedHtml(lastAssistant.content) && app.status === "active") {
-          lastAssistant.content = "生成完成，可以通过下方链接访问。"
-        } else {
-          lastAssistant.content = lastAssistant.content || (app.status === "active" ? "生成完成，可以通过下方链接访问。" : "生成失败，请重新描述需求后再试。")
-        }
+        lastAssistant.content = normalizeGeneratedContent(lastAssistant.content, app.status)
+          || (app.status === "active" ? "应用已生成或更新，可以在右侧预览。" : "生成失败，请重新描述需求后再试。")
         lastAssistant.resultStatus = app.status
-        lastAssistant.resultUrl = app.status === "active" ? `/apps/${appId}/` : null
+        lastAssistant.resultUrl = app.status === "active" || app.status === "edit_failed" ? cacheBustPreviewUrl(currentPreviewBaseUrl.value || projectPreviewUrl(appId), app.version) : null
       } else if (app.status === "active") {
-        loadedMessages.push({ role: "assistant", content: "生成完成，可以通过下方链接访问。", resultStatus: "active", resultUrl: `/apps/${appId}/` })
+        loadedMessages.push({ role: "assistant", content: "应用已生成或更新，可以在右侧预览。", resultStatus: "active", resultUrl: cacheBustPreviewUrl(currentPreviewBaseUrl.value || projectPreviewUrl(appId), app.version) })
       }
 
       messageCache.value[appId] = loadedMessages

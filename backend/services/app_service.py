@@ -13,7 +13,7 @@ from database import SessionLocal
 from models import App, Conversation, Style
 from services import ai_service, code_service
 
-SYSTEM_PROMPT = (
+LEGACY_HTML_SYSTEM_PROMPT = (
     "You are an expert frontend developer. When the user describes an application, "
     "generate a complete, self-contained HTML file that implements it. "
     "Always wrap your HTML in a ```html code block. "
@@ -133,18 +133,7 @@ async def _run_html_generation(
             .all()
         )
 
-        messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
-        style_prompt = _get_style_prompt(app, db)
-        if style_prompt:
-            messages.append({"role": "system", "content": style_prompt})
-        if app.version > 0:
-            html_path = Path(settings.DATA_DIR) / "apps" / app.id / "index.html"
-            if html_path.exists():
-                current_html = html_path.read_text(encoding="utf-8")
-                messages.append({"role": "system", "content": f"Current HTML:\n{current_html}"})
-
-        for conv in prior_conversations:
-            messages.append({"role": conv.role, "content": conv.content})
+        messages = _build_project_messages(app, user_message, prior_conversations, settings, db)
 
         full_reply: list[str] = []
         async for chunk in ai_service.stream_chat(messages, settings):
@@ -153,14 +142,14 @@ async def _run_html_generation(
             await _publish(state, "message", {"content": chunk})
 
         reply_text = "".join(full_reply)
-        html = code_service.extract_html(reply_text)
+        await _publish(state, "progress", {"content": "正在解析项目文件..."})
+        saved_url = _save_generation_result(app, reply_text, is_first, settings)
 
-        if html:
-            code_service.save_html(app.id, html, settings.DATA_DIR)
+        if saved_url:
             app.status = "active"
             app.version = (app.version or 0) + 1
         else:
-            app.status = "failed"
+            app.status = "failed" if is_first else "edit_failed"
 
         app.progress = None
         db.add(Conversation(
@@ -174,16 +163,75 @@ async def _run_html_generation(
     except Exception:
         app = db.query(App).filter(App.id == app_id).first()
         if app:
-            app.status = "failed"
+            app.status = "failed" if (app.version or 0) == 0 else "edit_failed"
             app.progress = None
             db.commit()
     finally:
         app = db.query(App).filter(App.id == app_id).first()
         state.done = True
         state.status = app.status if app else "failed"
-        state.url = f"/apps/{app_id}/" if app and app.status == "active" else None
+        state.url = _active_app_url(app_id, settings) if app and app.status in {"active", "edit_failed"} and (app.version or 0) > 0 else None
         await _publish(state, "result", {"url": state.url, "status": state.status})
         db.close()
+
+
+def _build_project_messages(
+    app: App,
+    user_message: str,
+    prior_conversations: list[Conversation],
+    settings: Settings,
+    db: Session,
+) -> list[dict]:
+    if app.version == 0:
+        messages: list[dict] = [{"role": "system", "content": ai_service.PROJECT_GENERATE_SYSTEM_PROMPT}]
+    else:
+        messages = [{"role": "system", "content": ai_service.PROJECT_MODIFY_SYSTEM_PROMPT}]
+        project_files = code_service.read_project_files(app.id, settings.DATA_DIR)
+        if project_files:
+            messages.append({"role": "system", "content": f"当前项目文件：\n{json.dumps(project_files, ensure_ascii=False)}"})
+        else:
+            html_path = Path(settings.DATA_DIR) / "apps" / app.id / "index.html"
+            if html_path.exists():
+                current_html = html_path.read_text(encoding="utf-8")
+                messages = [{"role": "system", "content": LEGACY_HTML_SYSTEM_PROMPT}]
+                messages.append({"role": "system", "content": f"Current HTML:\n{current_html}"})
+
+    style_prompt = _get_style_prompt(app, db)
+    if style_prompt:
+        messages.append({"role": "system", "content": style_prompt})
+
+    for conv in prior_conversations:
+        messages.append({"role": conv.role, "content": conv.content})
+    if user_message and (not messages or messages[-1].get("content") != user_message):
+        messages.append({"role": "user", "content": user_message})
+    return messages
+
+
+def _save_generation_result(app: App, reply_text: str, is_first: bool, settings: Settings) -> str | None:
+    if is_first:
+        files = code_service.parse_project_json(reply_text)
+        if files:
+            code_service.save_project(app.id, files, settings.DATA_DIR)
+            return f"/generated/{app.id}/project/index.html"
+    else:
+        project_index = code_service.project_dir_for(app.id, settings.DATA_DIR) / "index.html"
+        changes = code_service.parse_changes_json(reply_text)
+        if changes and project_index.exists():
+            code_service.save_changes(app.id, changes, settings.DATA_DIR)
+            return f"/generated/{app.id}/project/index.html"
+
+    html = code_service.extract_html(reply_text)
+    if html:
+        code_service.save_html(app.id, html, settings.DATA_DIR)
+        return f"/apps/{app.id}/"
+    return None
+
+
+def _active_app_url(app_id: str, settings: Settings) -> str:
+    project_index = code_service.project_dir_for(app_id, settings.DATA_DIR) / "index.html"
+    if project_index.exists():
+        return f"/generated/{app_id}/project/index.html"
+    return f"/apps/{app_id}/"
 
 
 async def _set_app_name(app: App, user_message: str, settings: Settings, db: Session) -> None:

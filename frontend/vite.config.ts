@@ -7,6 +7,7 @@ export default defineConfig({
     proxy: {
       "/api": "http://localhost:8000",
       "/apps": "http://localhost:8000",
+      "/generated": "http://localhost:8000",
     },
   },
   build: {

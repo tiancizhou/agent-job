@@ -3,12 +3,12 @@
     <div class="bubble" :class="role === 'user' ? 'bubble--user' : 'bubble--assistant'">
       <span v-if="role === 'assistant' && !content" class="bubble__placeholder">
         <span class="bubble__dot" />
-        正在生成页面代码...
+        正在生成项目文件...
       </span>
       <div v-else-if="isCodeStream" class="bubble__code-shell">
         <div class="bubble__code-header">
           <span class="bubble__code-dot" />
-          正在生成代码
+          正在生成项目文件
         </div>
         <pre ref="codeStreamRef" class="bubble__code-stream">{{ content }}</pre>
       </div>
@@ -51,8 +51,13 @@ const codeStreamRef = ref<HTMLElement | null>(null)
 
 const isCodeStream = computed(() => (
   props.role === "assistant"
-  && props.content.includes("```html")
   && props.resultStatus !== "active"
+  && (
+    props.content.includes("```html")
+    || props.content.includes("```json")
+    || props.content.includes('"files"')
+    || props.content.includes('"changes"')
+  )
 ))
 
 watch(
@@ -66,9 +71,9 @@ watch(
 )
 
 const resultTitle = computed(() => {
-  if (props.resultStatus === "active") return "页面应用已生成"
-  if (props.resultStatus === "failed") return "页面应用生成失败"
-  return "页面应用生成中"
+  if (props.resultStatus === "active") return "应用已生成"
+  if (props.resultStatus === "failed") return "应用生成失败"
+  return "应用生成中"
 })
 
 const resultDescription = computed(() => {

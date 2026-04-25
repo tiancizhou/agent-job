@@ -146,6 +146,10 @@ export async function listConversations(appId: string): Promise<Conversation[]> 
   return request<Conversation[]>(`/apps/${appId}/conversations`)
 }
 
+export async function getAppPreview(appId: string): Promise<{ url: string }> {
+  return request<{ url: string }>(`/apps/${appId}/preview`)
+}
+
 // Calls POST /api/apps/:id/chat via fetch with SSE parsing.
 // onChunk(content) is called for each text chunk.
 // onResult(url, status) is called when the result event arrives.
