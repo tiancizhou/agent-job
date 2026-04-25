@@ -50,8 +50,8 @@ JSON 格式如下：
 要求：
 - 必须包含 index.html
 - index.html 必须包含 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-- CSS 尽量写入 css/style.css
-- JS 尽量写入 js/app.js
+- 必须包含 css/style.css，所有 CSS 必须写入 css/style.css，不要写内联 style
+- 必须包含 js/app.js，所有 JavaScript 必须写入 js/app.js，不要写内联 script
 - 支持多页面
 - 多页面之间使用相对路径跳转
 - 所有资源路径必须是相对路径

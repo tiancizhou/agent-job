@@ -144,8 +144,9 @@ function onAppCreated(app: App) {
 
 async function onAppUpdated(app: App) {
   await Promise.all([refreshApps(), refreshUsageSummary()])
-  selectedAppId.value = app.id
-  window.localStorage.setItem("quickapp:selectedAppId", app.id)
+  if (selectedAppId.value === app.id) {
+    window.localStorage.setItem("quickapp:selectedAppId", app.id)
+  }
 }
 
 async function onLogout() {

@@ -131,8 +131,8 @@
               ref="inputRef"
               v-model="inputText"
               class="chat-panel__textarea"
-              :disabled="isStreaming"
-              :placeholder="isStreaming ? '正在生成中…' : '描述你想要的应用功能…'"
+              :disabled="currentAppIsStreaming"
+              :placeholder="currentAppIsStreaming ? '正在生成中…' : '描述你想要的应用功能…'"
               rows="1"
               @keydown.enter.exact.prevent="sendMessage"
               @input="autoResize"
@@ -189,7 +189,7 @@
               <span class="chat-panel__toolbar-divider" />
               <button
                 class="chat-panel__send-btn"
-                :disabled="isStreaming || !inputText.trim()"
+                :disabled="currentAppIsStreaming || !inputText.trim()"
                 @click="sendMessage"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -284,8 +284,8 @@ const inputText = ref("")
 const selectedStyleId = ref<string | null>(null)
 const isStylePickerOpen = ref(false)
 const styleNotice = ref("")
-const isStreaming = ref(false)
-const streamProgress = ref("")
+const streamingAppIds = ref<Set<string>>(new Set())
+const streamProgressByAppId = ref<Record<string, string>>({})
 const isChatCollapsed = ref(false)
 const currentAppId = ref<string | null>(null)
 const currentApp = ref<App | null>(null)
@@ -296,8 +296,8 @@ const pointerX = ref(50)
 const pointerY = ref(50)
 const pointerTiltX = ref(0)
 const pointerTiltY = ref(0)
-let statusPoller: number | null = null
-let resumeStream: ResumeStreamState | null = null
+const statusPollers: Record<string, number | undefined> = {}
+const resumeStreams: Record<string, ResumeStreamState | undefined> = {}
 
 const promptTips = [
   "会议报名页",
@@ -327,106 +327,111 @@ const previewUrl = computed(() => {
 
 const previewTitle = computed(() => {
   if (currentApp.value?.status === "failed") return "应用生成失败"
-  if (isStreaming.value || currentApp.value?.status === "creating" || currentApp.value?.status === "editing") return "正在准备预览"
+  if (currentAppIsStreaming.value || currentApp.value?.status === "creating" || currentApp.value?.status === "editing") return "正在准备预览"
   return "预览暂不可用"
 })
 
 const previewDescription = computed(() => {
   if (currentApp.value?.status === "failed") return "可以在左侧继续对话，让 QuickApp 重新调整或再次生成。"
-  if (isStreaming.value || currentApp.value?.status === "creating" || currentApp.value?.status === "editing") return "模型回复会正常显示在左侧，页面生成完成后这里会自动切换为实时预览。"
+  if (currentAppIsStreaming.value || currentApp.value?.status === "creating" || currentApp.value?.status === "editing") return "模型回复会正常显示在左侧，页面生成完成后这里会自动切换为实时预览。"
   return "当前应用还没有可打开的页面。"
 })
 
 const currentStyleName = computed(() => props.styles.find((style) => style.id === selectedStyleId.value)?.name || "无风格")
+const currentAppIsStreaming = computed(() => Boolean(currentAppId.value && streamingAppIds.value.has(currentAppId.value)))
+const streamProgress = computed(() => currentAppId.value ? streamProgressByAppId.value[currentAppId.value] || "" : "")
 
 // Watch for selectedAppId changes
 watch(
   () => props.selectedAppId,
   async (newId) => {
-    if (newId === currentAppId.value) {
-      return
-    }
-
-    stopStatusPolling()
-    streamProgress.value = ""
-
-    if (currentAppId.value) {
-      messageCache.value[currentAppId.value] = messages.value
-    }
-
-    if (newId === null) {
-      messages.value = []
-      currentAppId.value = null
-      currentApp.value = null
-      currentPreviewBaseUrl.value = null
-      isChatCollapsed.value = false
-      return
-    }
-
-    currentAppId.value = newId
-    isChatCollapsed.value = false
-
-    try {
-      const [app, conversations] = await Promise.all([
-        getApp(newId),
-        listConversations(newId),
-      ])
-      currentApp.value = app
-      selectedStyleId.value = app.style_id || null
-      await refreshPreviewBaseUrl(newId, app)
-
-      if (app.status === "creating" || app.status === "editing") {
-        streamProgress.value = app.progress || "正在生成中..."
-      }
-
-      if (messageCache.value[newId]) {
-        messages.value = messageCache.value[newId]
-        if (app.status === "creating" || app.status === "editing") {
-          startStatusPolling(newId)
-        }
-        await scrollToBottom()
-        return
-      }
-
-      const loadedMessages: Message[] = conversations
-        .filter((conversation) => conversation.role === "user" || conversation.role === "assistant")
-        .map((conversation) => ({
-          role: conversation.role as "user" | "assistant",
-          content: conversation.content,
-        }))
-
-      const lastAssistant = [...loadedMessages].reverse().find((message) => message.role === "assistant")
-      if (lastAssistant) {
-        if (looksLikeGeneratedArtifact(lastAssistant.content) && app.status === "active") {
-          lastAssistant.content = "应用已生成或更新，可以在右侧预览。"
-        }
-        lastAssistant.resultStatus = app.status
-        lastAssistant.resultUrl = app.status === "active" ? cacheBustPreviewUrl(currentPreviewBaseUrl.value || projectPreviewUrl(newId), app.version) : null
-      }
-      if (app.status === "creating") {
-        if (!lastAssistant) {
-          loadedMessages.push({ role: "assistant", content: "" })
-        }
-        messageCache.value[newId] = loadedMessages
-        messages.value = loadedMessages
-        resumeGeneratingApp(newId)
-        await scrollToBottom()
-        return
-      }
-
-      messageCache.value[newId] = loadedMessages
-      messages.value = loadedMessages
-    } catch (err) {
-      currentApp.value = null
-      messages.value = [{ role: "assistant", content: "加载聊天记录失败，请稍后重试。", resultStatus: "failed" }]
-    }
-
-    await scrollToBottom()
+    await loadSelectedApp(newId)
   },
+  { immediate: true },
 )
 
+async function loadSelectedApp(newId: string | null) {
+  if (newId === currentAppId.value && (newId === null || currentApp.value)) {
+    return
+  }
+
+  if (currentAppId.value) {
+    messageCache.value[currentAppId.value] = messages.value
+  }
+
+  if (newId === null) {
+    messages.value = []
+    currentAppId.value = null
+    currentApp.value = null
+    currentPreviewBaseUrl.value = null
+    isChatCollapsed.value = false
+    return
+  }
+
+  currentAppId.value = newId
+  isChatCollapsed.value = false
+
+  try {
+    const [app, conversations] = await Promise.all([
+      getApp(newId),
+      listConversations(newId),
+    ])
+    currentApp.value = app
+    selectedStyleId.value = app.style_id || null
+    await refreshPreviewBaseUrl(newId, app)
+
+    if (app.status === "creating" || app.status === "editing") {
+      setAppStreaming(newId, true)
+      setAppProgress(newId, app.progress || "正在生成中...")
+    }
+
+    if (messageCache.value[newId]) {
+      messages.value = messageCache.value[newId]
+      if (app.status === "creating" || app.status === "editing") {
+        startStatusPolling(newId)
+      }
+      await scrollToBottom()
+      return
+    }
+
+    const loadedMessages: Message[] = conversations
+      .filter((conversation) => conversation.role === "user" || conversation.role === "assistant")
+      .map((conversation) => ({
+        role: conversation.role as "user" | "assistant",
+        content: conversation.content,
+      }))
+
+    const lastAssistant = [...loadedMessages].reverse().find((message) => message.role === "assistant")
+    if (lastAssistant) {
+      if (looksLikeGeneratedArtifact(lastAssistant.content) && app.status === "active") {
+        lastAssistant.content = "应用已生成或更新，可以在右侧预览。"
+      }
+      lastAssistant.resultStatus = app.status
+      lastAssistant.resultUrl = app.status === "active" ? cacheBustPreviewUrl(currentPreviewBaseUrl.value || projectPreviewUrl(newId), app.version) : null
+    }
+    if (app.status === "creating") {
+      if (!lastAssistant) {
+        loadedMessages.push({ role: "assistant", content: "" })
+      }
+      messageCache.value[newId] = loadedMessages
+      messages.value = loadedMessages
+      resumeGeneratingApp(newId)
+      await scrollToBottom()
+      return
+    }
+
+    messageCache.value[newId] = loadedMessages
+    messages.value = loadedMessages
+  } catch (err) {
+    currentApp.value = null
+    messages.value = [{ role: "assistant", content: "加载聊天记录失败，请稍后重试。", resultStatus: "failed" }]
+  }
+
+  await scrollToBottom()
+}
+
 async function sendMessage() {
-  if (isStreaming.value) return
+  if (currentAppIsStreaming.value) return
   const userMessage = inputText.value.trim()
   if (!userMessage) return
 
@@ -457,10 +462,10 @@ async function sendMessage() {
 
   // 3. Push streaming placeholder
   messages.value.push({ role: "assistant", content: "" })
-  isStreaming.value = true
   await scrollToBottom()
 
   const appId = currentAppId.value!
+  setAppStreaming(appId, true)
   messageCache.value[appId] = messages.value
   startStatusPolling(appId)
 
@@ -483,12 +488,12 @@ async function sendMessage() {
       // onProgress
       (progress) => {
         if (currentAppId.value === appId) {
-          streamProgress.value = progress
+          setAppProgress(appId, progress)
         }
       },
       // onResult
       async (url, status) => {
-        streamProgress.value = ""
+        clearAppProgress(appId)
         const appMessages = messageCache.value[appId]
         const last = appMessages?.[appMessages.length - 1]
         let updatedApp = currentApp.value
@@ -511,12 +516,12 @@ async function sendMessage() {
           messages.value = appMessages
           scrollToBottom()
         }
-        isStreaming.value = false
-        stopStatusPolling()
+        setAppStreaming(appId, false)
+        stopStatusPolling(appId)
       },
     )
   } catch (err) {
-    streamProgress.value = ""
+    clearAppProgress(appId)
     const appMessages = messageCache.value[appId]
     const last = appMessages?.[appMessages.length - 1]
     if (last && last.role === "assistant") {
@@ -526,18 +531,18 @@ async function sendMessage() {
     if (currentAppId.value === appId) {
       messages.value = appMessages
     }
-    isStreaming.value = false
-    stopStatusPolling()
+    setAppStreaming(appId, false)
+    stopStatusPolling(appId)
   }
 }
 
 async function resumeGeneratingApp(appId: string) {
-  if (resumeStream?.appId === appId) return
-  isStreaming.value = true
+  if (resumeStreams[appId]) return
+  setAppStreaming(appId, true)
   const appMessages = messageCache.value[appId] || messages.value
   const assistantIndex = [...appMessages].reverse().findIndex((message: Message) => message.role === "assistant")
   const messageIndex = assistantIndex === -1 ? -1 : appMessages.length - 1 - assistantIndex
-  resumeStream = { appId, messageIndex }
+  resumeStreams[appId] = { appId, messageIndex }
   startStatusPolling(appId)
 
   try {
@@ -546,7 +551,7 @@ async function resumeGeneratingApp(appId: string) {
       "",
       async (content) => {
         const currentMessages = messageCache.value[appId]
-        const target = currentMessages?.[resumeStream?.messageIndex ?? -1]
+        const target = currentMessages?.[resumeStreams[appId]?.messageIndex ?? -1]
         if (target && target.role === "assistant") {
           target.content += content
         }
@@ -556,22 +561,24 @@ async function resumeGeneratingApp(appId: string) {
         }
       },
       (progress) => {
-        if (currentAppId.value === appId) {
-          streamProgress.value = progress
-        }
+        setAppProgress(appId, progress)
       },
       async (url, status) => {
-        streamProgress.value = ""
+        clearAppProgress(appId)
         const currentMessages = messageCache.value[appId]
-        const target = currentMessages?.[resumeStream?.messageIndex ?? -1]
+        const target = currentMessages?.[resumeStreams[appId]?.messageIndex ?? -1]
         let updatedApp: App | null = null
         try {
           updatedApp = await getApp(appId)
-          currentApp.value = updatedApp
+          if (currentAppId.value === appId) {
+            currentApp.value = updatedApp
+          }
           await refreshPreviewBaseUrl(appId, updatedApp, url)
           emit("app-updated", updatedApp)
         } catch {
-          currentApp.value = null
+          if (currentAppId.value === appId) {
+            currentApp.value = null
+          }
         }
         if (target && target.role === "assistant") {
           target.content = status === "active" ? "应用已生成或更新，可以在右侧预览。" : normalizeGeneratedContent(target.content, status)
@@ -582,13 +589,16 @@ async function resumeGeneratingApp(appId: string) {
           messages.value = currentMessages
           await scrollToBottom()
         }
-        isStreaming.value = false
-        resumeStream = null
-        stopStatusPolling()
+        setAppStreaming(appId, false)
+        delete resumeStreams[appId]
+        stopStatusPolling(appId)
       },
     )
   } catch {
-    resumeStream = null
+    clearAppProgress(appId)
+    setAppStreaming(appId, false)
+    delete resumeStreams[appId]
+    stopStatusPolling(appId)
   }
 }
 
@@ -634,36 +644,57 @@ function looksLikeGeneratedArtifact(content: string): boolean {
     || content.includes("<html")
 }
 
-function stopStatusPolling() {
-  if (statusPoller !== null) {
-    window.clearInterval(statusPoller)
-    statusPoller = null
+function setAppStreaming(appId: string, streaming: boolean) {
+  const next = new Set(streamingAppIds.value)
+  if (streaming) {
+    next.add(appId)
+  } else {
+    next.delete(appId)
+  }
+  streamingAppIds.value = next
+}
+
+function setAppProgress(appId: string, progress: string) {
+  streamProgressByAppId.value = {
+    ...streamProgressByAppId.value,
+    [appId]: progress,
+  }
+}
+
+function clearAppProgress(appId: string) {
+  const next = { ...streamProgressByAppId.value }
+  delete next[appId]
+  streamProgressByAppId.value = next
+}
+
+function stopStatusPolling(appId: string) {
+  const poller = statusPollers[appId]
+  if (poller !== undefined) {
+    window.clearInterval(poller)
+    delete statusPollers[appId]
   }
 }
 
 function startStatusPolling(appId: string) {
-  stopStatusPolling()
-  statusPoller = window.setInterval(async () => {
+  stopStatusPolling(appId)
+  statusPollers[appId] = window.setInterval(async () => {
     try {
       const app = await getApp(appId)
       if (currentAppId.value === appId) {
         currentApp.value = app
         await refreshPreviewBaseUrl(appId, app)
-        if ((app.status === "creating" || app.status === "editing") && app.progress) {
-          streamProgress.value = app.progress
-        }
+      }
+      if ((app.status === "creating" || app.status === "editing") && app.progress) {
+        setAppProgress(appId, app.progress)
       }
       if (app.status === "creating" || app.status === "editing") {
         return
       }
 
-      isStreaming.value = false
-      stopStatusPolling()
+      setAppStreaming(appId, false)
+      stopStatusPolling(appId)
       emit("app-updated", app)
-
-      if (currentAppId.value === appId) {
-        streamProgress.value = ""
-      }
+      clearAppProgress(appId)
 
       let loadedMessages: Message[] = []
       try {
@@ -699,11 +730,10 @@ function startStatusPolling(appId: string) {
         await scrollToBottom()
       }
     } catch {
-      if (currentAppId.value === appId) {
-        streamProgress.value = ""
-      }
-      isStreaming.value = false
-      stopStatusPolling()
+      clearAppProgress(appId)
+      setAppStreaming(appId, false)
+      delete resumeStreams[appId]
+      stopStatusPolling(appId)
     }
   }, 2000)
 }
@@ -776,7 +806,10 @@ function onDocumentClick() {
 }
 
 onMounted(() => document.addEventListener("click", onDocumentClick))
-onUnmounted(() => document.removeEventListener("click", onDocumentClick))
+onUnmounted(() => {
+  document.removeEventListener("click", onDocumentClick)
+  Object.keys(statusPollers).forEach(stopStatusPolling)
+})
 </script>
 
 <style scoped>

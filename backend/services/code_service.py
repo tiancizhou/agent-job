@@ -47,7 +47,10 @@ def parse_project_json(text: str) -> list[dict[str, str]] | None:
     files = _normalize_file_entries(data.get("files"), MAX_PROJECT_FILES)
     if files is None:
         return None
-    if not any(file["path"] == "index.html" for file in files):
+    paths = {file["path"] for file in files}
+    if "index.html" not in paths:
+        return None
+    if "css/style.css" not in paths or "js/app.js" not in paths:
         return None
     return files
 

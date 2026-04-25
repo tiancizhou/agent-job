@@ -338,7 +338,7 @@ class AuthTestCase(unittest.TestCase):
         from config import Settings
         from services import ai_service, app_service
 
-        project_reply = '{"files":[{"path":"index.html","content":"<html><link rel=\\"stylesheet\\" href=\\"css/style.css\\"></html>"},{"path":"css/style.css","content":"body { color: green; }"}]}'
+        project_reply = '{"files":[{"path":"index.html","content":"<html><link rel=\\"stylesheet\\" href=\\"css/style.css\\"><script src=\\"js/app.js\\"></script></html>"},{"path":"css/style.css","content":"body { color: green; }"},{"path":"js/app.js","content":"console.log(\\"ok\\")"}]}'
 
         async def stream_project(messages, settings):
             yield ai_service.StreamChatEvent(content=project_reply)
@@ -488,7 +488,7 @@ class AuthTestCase(unittest.TestCase):
         finally:
             db.close()
 
-    def test_background_generation_finishes_after_disconnect(self):
+    def test_background_generation_rejects_single_html_output_after_disconnect(self):
         db = self.database.SessionLocal()
         try:
             db.add(self.models.Employee(employee_no="64013", name="后台测试", status="active"))
@@ -549,12 +549,18 @@ class AuthTestCase(unittest.TestCase):
         db = self.database.SessionLocal()
         try:
             app = db.query(self.models.App).filter(self.models.App.id == app_id).first()
-            self.assertEqual("active", app.status)
+            self.assertEqual("failed", app.status)
             self.assertIsNone(app.progress)
-            self.assertEqual(1, app.version)
+            self.assertEqual(0, app.version)
+            self.assertEqual("project", app.project_type)
+            self.assertFalse((Path(self.tmp.name) / "data" / "apps" / app_id / "index.html").exists())
 
-            conv_count = db.query(self.models.Conversation).filter(self.models.Conversation.app_id == app_id).count()
-            self.assertGreaterEqual(conv_count, 2)
+            usage = db.query(self.models.UsageRecord).filter(
+                self.models.UsageRecord.app_id == app_id,
+                self.models.UsageRecord.action == "generate",
+            ).first()
+            self.assertIsNotNone(usage)
+            self.assertEqual("failed", usage.status)
         finally:
             db.close()
 

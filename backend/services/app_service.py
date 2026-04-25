@@ -254,12 +254,6 @@ def _save_generation_result(app: App, reply_text: str, is_first: bool, settings:
             app.project_type = "project"
             return f"/generated/{app.id}/project/index.html"
 
-    html = code_service.extract_html(reply_text)
-    if html:
-        code_service.save_html(app.id, html, settings.DATA_DIR)
-        app.entry_path = "index.html"
-        app.project_type = "html"
-        return f"/apps/{app.id}/"
     return None
 
 

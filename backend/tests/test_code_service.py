@@ -25,11 +25,22 @@ class ProjectCodeServiceTestCase(unittest.TestCase):
         self.assertEqual(payload["files"], files)
 
     def test_parse_project_json_accepts_raw_json(self):
-        payload = {"files": [{"path": "index.html", "content": "<html></html>"}]}
+        payload = {
+            "files": [
+                {"path": "index.html", "content": "<html></html>"},
+                {"path": "css/style.css", "content": "body { margin: 0; }"},
+                {"path": "js/app.js", "content": "console.log('ok')"},
+            ]
+        }
 
         files = code_service.parse_project_json(json.dumps(payload))
 
         self.assertEqual(payload["files"], files)
+
+    def test_parse_project_json_rejects_single_html_project(self):
+        payload = {"files": [{"path": "index.html", "content": "<html></html>"}]}
+
+        self.assertIsNone(code_service.parse_project_json(json.dumps(payload)))
 
     def test_parse_project_json_rejects_missing_index(self):
         payload = {"files": [{"path": "pages/home.html", "content": "<html></html>"}]}
