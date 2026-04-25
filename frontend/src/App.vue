@@ -216,19 +216,20 @@ async function onLogout() {
     display: block;
     height: 100dvh;
     overflow: hidden;
-    padding-bottom: calc(66px + env(safe-area-inset-bottom));
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
   }
 
   .sidebar {
     display: none;
     width: 100%;
-    height: calc(100dvh - 66px - env(safe-area-inset-bottom));
+    height: calc(100dvh - 72px - env(safe-area-inset-bottom));
     border-right: none;
     box-shadow: none;
   }
 
   .chat-area {
-    height: calc(100dvh - 66px - env(safe-area-inset-bottom));
+    height: calc(100dvh - 72px - env(safe-area-inset-bottom));
+    min-height: 0;
   }
 
   .app-layout--mobile-apps .sidebar {
@@ -259,9 +260,9 @@ async function onLogout() {
 
   .mobile-tabbar {
     position: fixed;
-    left: 12px;
-    right: 12px;
-    bottom: max(10px, env(safe-area-inset-bottom));
+    left: 10px;
+    right: 10px;
+    bottom: max(8px, env(safe-area-inset-bottom));
     z-index: 20;
     display: grid;
     grid-template-columns: repeat(3, 1fr);

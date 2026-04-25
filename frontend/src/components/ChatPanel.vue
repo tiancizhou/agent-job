@@ -1609,7 +1609,9 @@ onUnmounted(() => document.removeEventListener("click", onDocumentClick))
 
   .home-hero {
     min-height: 100%;
-    padding: 22px 16px 18px;
+    padding: 18px 14px 14px;
+    align-items: flex-start;
+    overflow-y: auto;
   }
 
   .home-hero__content {
@@ -1680,6 +1682,7 @@ onUnmounted(() => document.removeEventListener("click", onDocumentClick))
 
   .chat-panel__messages {
     padding: 14px 12px;
+    overscroll-behavior: contain;
   }
 
   .chat-panel__message-stream {
@@ -1687,28 +1690,59 @@ onUnmounted(() => document.removeEventListener("click", onDocumentClick))
   }
 
   .chat-panel__input-bar {
-    padding: 0 10px 10px;
+    padding: 8px 10px max(10px, env(safe-area-inset-bottom));
   }
 
   .chat-panel__input-box {
     border-radius: 20px;
   }
 
-  .preview-card__header {
-    padding: 14px;
-  }
-
-  .preview-card__header h2 {
+  .chat-panel__textarea {
+    max-height: 120px;
     font-size: 16px;
   }
 
+  .chat-panel__style-icon-btn,
+  .chat-panel__send-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .preview-card {
+    height: 100%;
+  }
+
+  .preview-card__header {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .preview-card__header h2 {
+    max-width: 58vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 16px;
+  }
+
+  .preview-card__open {
+    min-height: 40px;
+    padding: 10px 12px;
+  }
+
   .preview-card__body {
-    padding: 8px;
+    padding: 0;
   }
 
   .preview-card__iframe,
   .preview-card__placeholder {
-    border-radius: 16px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .preview-card__placeholder {
+    padding: 22px 16px;
   }
 }
 </style>

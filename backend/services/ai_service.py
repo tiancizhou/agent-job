@@ -28,12 +28,17 @@ JSON 格式如下：
 
 要求：
 - 必须包含 index.html
+- index.html 必须包含 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 - CSS 尽量写入 css/style.css
 - JS 尽量写入 js/app.js
 - 支持多页面
 - 多页面之间使用相对路径跳转
 - 所有资源路径必须是相对路径
-- 页面必须适配移动端
+- 页面必须使用 mobile-first 方式编写，默认样式先适配手机，再用 @media (min-width: 768px) 增强桌面端
+- 页面在 375px 宽度下必须可读、可点、无横向滚动；不要使用固定大宽度、超宽表格或不可换行内容
+- 表单、按钮、导航、卡片、表格都要适配移动端；表格在手机上改为卡片、横向滚动容器或可读的纵向布局
+- 按钮、输入框、选择器等触控控件高度不小于 44px，并保留足够间距
+- 图片、卡片、容器必须 max-width: 100%，布局宽度使用百分比、flex、grid、clamp、minmax 等响应式方式
 - 只能输出 JSON
 """.strip()
 
@@ -58,6 +63,10 @@ JSON 格式如下：
 - 每个 content 必须是完整文件内容
 - 不要输出 diff
 - 不要输出解释
+- 不要破坏现有移动端适配；如果修改 index.html，要保留 viewport；如果修改 CSS，要保持 mobile-first
+- 修改后的页面在 375px 宽度下必须可读、可点、无横向滚动
+- 按钮、输入框、选择器等触控控件高度不小于 44px
+- 需要桌面增强时使用 @media (min-width: 768px)
 - 只能输出 JSON
 """.strip()
 

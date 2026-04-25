@@ -510,12 +510,13 @@ async function submit() {
 
 @media (max-width: 600px) {
   .login-page {
-    min-height: auto;
+    min-height: 100dvh;
     align-items: start;
     overflow-x: hidden;
     overflow-y: auto;
     gap: 16px;
-    padding: 20px 16px 32px;
+    padding: 20px 16px max(32px, env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling: touch;
   }
 
   .login-hero {
@@ -555,6 +556,7 @@ async function submit() {
     padding: 24px 20px;
     border-radius: 24px;
     max-width: none;
+    margin-bottom: env(safe-area-inset-bottom);
   }
 
   .login-card__header h2 {
