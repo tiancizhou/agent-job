@@ -8,11 +8,18 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects.sqlite import DATETIME as SQLiteDateTime
 
 revision: str = "0002_app_data_records"
 down_revision: Union[str, Sequence[str], None] = "0001_initial_schema"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+
+
+DB_DATETIME = sa.DateTime().with_variant(
+    SQLiteDateTime(storage_format="%(year)04d-%(month)02d-%(day)02d %(hour)02d:%(minute)02d:%(second)02d"),
+    "sqlite",
+)
 
 
 def upgrade() -> None:
@@ -22,8 +29,8 @@ def upgrade() -> None:
         sa.Column("app_id", sa.String(length=36), nullable=False),
         sa.Column("collection", sa.String(length=64), nullable=False),
         sa.Column("payload", sa.Text(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", DB_DATETIME, nullable=False),
+        sa.Column("updated_at", DB_DATETIME, nullable=False),
         sa.ForeignKeyConstraint(["app_id"], ["apps.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )

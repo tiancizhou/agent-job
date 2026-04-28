@@ -1,7 +1,6 @@
 import json
 import re
 import uuid
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -13,6 +12,7 @@ from models import (
     AppDataRecord,
     AppDataRecordResponse,
     AppDataUpdateRequest,
+    now_utc,
 )
 
 router = APIRouter()
@@ -148,7 +148,7 @@ def update_app_data_record(
     collection = validate_collection(collection)
     record = get_record(app_id, collection, record_id, db)
     record.payload = encode_payload(body.data)
-    record.updated_at = datetime.utcnow()
+    record.updated_at = now_utc()
     db.commit()
     db.refresh(record)
     return record_response(record)

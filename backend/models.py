@@ -6,12 +6,23 @@ from typing import Optional
 
 from pydantic import BaseModel
 from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
+from sqlalchemy.dialects.sqlite import DATETIME as SQLiteDateTime
 
 from database import Base
 
 
+DB_DATETIME = DateTime().with_variant(
+    SQLiteDateTime(storage_format="%(year)04d-%(month)02d-%(day)02d %(hour)02d:%(minute)02d:%(second)02d"),
+    "sqlite",
+)
+
+
 def _uuid() -> str:
     return str(uuid.uuid4())
+
+
+def now_utc() -> datetime:
+    return datetime.utcnow().replace(microsecond=0)
 
 
 EMPLOYEE_STATUSES = ("active", "disabled")
@@ -47,8 +58,8 @@ class Employee(Base):
     employee_no = Column(String(32), primary_key=True)
     name = Column(String(100), nullable=False)
     status = Column(String(20), nullable=False, default="active")
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DB_DATETIME, nullable=False, default=now_utc)
+    updated_at = Column(DB_DATETIME, nullable=False, default=now_utc, onupdate=now_utc)
 
 
 class User(Base):
@@ -61,8 +72,8 @@ class User(Base):
     employee_no = Column(String(32), ForeignKey("employees.employee_no", ondelete="RESTRICT"), nullable=False, unique=True)
     password_hash = Column(String(255), nullable=False)
     is_admin = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DB_DATETIME, nullable=False, default=now_utc)
+    updated_at = Column(DB_DATETIME, nullable=False, default=now_utc, onupdate=now_utc)
 
 
 class SessionToken(Base):
@@ -76,9 +87,9 @@ class SessionToken(Base):
     user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     ip_address = Column(String(64), nullable=True)
     user_agent = Column(String(500), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DB_DATETIME, nullable=False, default=now_utc)
+    updated_at = Column(DB_DATETIME, nullable=False, default=now_utc, onupdate=now_utc)
+    expires_at = Column(DB_DATETIME, nullable=False)
 
 
 class Style(Base):
@@ -92,8 +103,8 @@ class Style(Base):
     prompt = Column(Text, nullable=False)
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DB_DATETIME, nullable=False, default=now_utc)
+    updated_at = Column(DB_DATETIME, nullable=False, default=now_utc, onupdate=now_utc)
 
 
 class App(Base):
@@ -117,8 +128,8 @@ class App(Base):
     project_type = Column(String(20), nullable=False, default="project")
     visibility = Column(String(20), nullable=False, default="private")
     preview_token = Column(String(64), nullable=True, unique=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DB_DATETIME, nullable=False, default=now_utc)
+    updated_at = Column(DB_DATETIME, nullable=False, default=now_utc, onupdate=now_utc)
     version = Column(Integer, nullable=False, default=0)
 
 
@@ -133,8 +144,8 @@ class Conversation(Base):
     app_id = Column(String(36), ForeignKey("apps.id", ondelete="CASCADE"), nullable=False)
     role = Column(String(20), nullable=False)
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DB_DATETIME, nullable=False, default=now_utc)
+    updated_at = Column(DB_DATETIME, nullable=False, default=now_utc, onupdate=now_utc)
 
 
 class UsageRecord(Base):
@@ -164,8 +175,8 @@ class UsageRecord(Base):
     cost = Column(Numeric(12, 6), nullable=False, default=0)
     is_estimated = Column(Boolean, nullable=False, default=True)
     status = Column(String(20), nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DB_DATETIME, nullable=False, default=now_utc)
+    updated_at = Column(DB_DATETIME, nullable=False, default=now_utc, onupdate=now_utc)
 
 
 class AppDataRecord(Base):
@@ -179,8 +190,8 @@ class AppDataRecord(Base):
     app_id = Column(String(36), ForeignKey("apps.id", ondelete="CASCADE"), nullable=False)
     collection = Column(String(64), nullable=False)
     payload = Column(Text, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DB_DATETIME, nullable=False, default=now_utc)
+    updated_at = Column(DB_DATETIME, nullable=False, default=now_utc, onupdate=now_utc)
 
 
 class UserResponse(BaseModel):
