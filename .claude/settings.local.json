@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(python *)",
+      "Bash(git restore *)",
+      "Bash(backend/.venv/Scripts/python *)",
+      "Bash(PYTHONPATH=backend backend/.venv/Scripts/python *)",
+      "Bash(LLM_API_KEY=dummy LLM_BASE_URL=https://example.com/v1 LLM_MODEL=dummy PYTHONPATH=backend backend/.venv/Scripts/python *)",
+      "Bash(git commit *)",
+      "Bash(git revert *)",
+      "Bash(npm *)",
+      "Bash(D:/Projects/GitHub/bob/quick-da/backend/.venv/Scripts/python *)"
+    ]
+  }
+}
