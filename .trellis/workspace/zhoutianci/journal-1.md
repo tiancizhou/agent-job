@@ -177,3 +177,36 @@ Implemented lightweight frontend preview/edit guidance, recorded decisions to sk
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: 设备偏好与风格发现性优化
+
+**Date**: 2026-04-29
+**Task**: 设备偏好与风格发现性优化
+**Branch**: `main`
+
+### Summary
+
+新增生成设备偏好选择，chat 请求携带 device_preference 并注入布局 prompt；将风格入口改为可见胶囊，提升预设风格发现性。前端构建和后端 71 个 unittest 通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c71b291` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
