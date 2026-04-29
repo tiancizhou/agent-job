@@ -65,10 +65,64 @@ data: {"url": null, "status": "failed"}
 
 ---
 
+## Scenario: Generated Artifact Validation and Recovery
+
+### 1. Scope / Trigger
+- Trigger: Chat generation/editing changes the cross-layer SSE contract and writes LLM-produced files to disk.
+- Applies to `services/code_service.py`, `services/app_service.py`, and frontend consumers of `/api/apps/{app_id}/chat`.
+
+### 2. Signatures
+- `code_service.parse_project_json_or_raise(text: str) -> list[dict[str, str]]`
+- `code_service.parse_changes_json_or_raise(text: str) -> list[dict[str, str]]`
+- `code_service.save_project(app_id: str, files: list[dict[str, str]], data_dir: str) -> Path`
+- `code_service.save_changes(app_id: str, changes: list[dict[str, str]], data_dir: str) -> Path`
+- SSE result payload: `{"url": string | null, "status": string, "error": string | null}`
+
+### 3. Contracts
+- Generate responses must contain `files`; edit responses must contain `changes`.
+- Generated projects must include `index.html`, `css/style.css`, and `js/app.js`.
+- `save_project()` and `save_changes()` must perform atomic replacement through temporary project directories.
+- `edit_failed` means the previous usable project version is still available.
+- `error` is user-facing Chinese text suitable for direct UI display.
+
+### 4. Validation & Error Matrix
+- Invalid JSON -> `ProjectValidationError` with a Chinese parse failure reason.
+- Missing required generated files -> `ProjectValidationError` listing missing paths.
+- Unsafe path / unsupported extension / traversal / Windows drive path -> `ProjectValidationError`.
+- Too many files or oversized content -> `ProjectValidationError`.
+- Edit without an existing project -> `ProjectValidationError` and `edit_failed` when the app already had a version.
+- Unexpected generation exception -> terminal `failed` or `edit_failed` plus generic Chinese `error`.
+
+### 5. Good/Base/Bad Cases
+- Good: valid generated JSON writes to a temp directory and then replaces `/data/apps/{id}/project`.
+- Base: valid edit copies the current project to temp, applies all changes, validates final project limits, then replaces the target.
+- Bad: parsing fails or a later file is invalid; no existing project files are overwritten or removed.
+
+### 6. Tests Required
+- Unit tests for parse errors with `ProjectValidationError` details.
+- Unit tests proving invalid `save_project()` input does not remove an existing project.
+- Unit tests proving invalid `save_changes()` input does not partially write earlier changes.
+- Unit tests proving the final edited project still respects total file-count and file-size limits.
+
+### 7. Wrong vs Correct
+#### Wrong
+```python
+shutil.rmtree(project_dir)
+for file in files:
+    write_file(file)
+```
+
+#### Correct
+```python
+write_project_files(temp_dir, files)
+replace_project_dir(project_dir, temp_dir, backup_dir)
+```
+
 ## Common Mistakes
 
 - Do not let unsafe file path details leak to clients; convert to 404 like `serve_generated_project_file()`.
 - Do not leave apps stuck in `creating`/`editing` after generation exceptions; set a terminal failure status and commit.
-- Do not return plain strings for API errors; raise `HTTPException`.
+- Do not delete or partially overwrite an existing generated project before all LLM output has been validated and written successfully.
+- Do not return plain strings for API errors; raise `HTTPException` for normal APIs or `ProjectValidationError` inside generated artifact parsing/saving.
 - Do not add custom exception classes without also documenting and applying a consistent FastAPI handler.
 - Do not swallow errors that are required for user feedback, except for explicitly non-critical best-effort work like app naming.

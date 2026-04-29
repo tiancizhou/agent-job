@@ -116,6 +116,7 @@
               :content="msg.content"
               :result-url="msg.resultUrl"
               :result-status="msg.resultStatus"
+              :result-error="msg.resultError"
             />
           </div>
         </div>
@@ -271,6 +272,7 @@ interface Message {
   content: string
   resultUrl?: string | null
   resultStatus?: string | null
+  resultError?: string | null
 }
 
 interface ResumeStreamState {
@@ -492,7 +494,7 @@ async function sendMessage() {
         }
       },
       // onResult
-      async (url, status) => {
+      async (url, status, error) => {
         clearAppProgress(appId)
         const appMessages = messageCache.value[appId]
         const last = appMessages?.[appMessages.length - 1]
@@ -511,6 +513,7 @@ async function sendMessage() {
           last.content = status === "active" ? "应用已生成或更新，可以在右侧预览。" : normalizeGeneratedContent(last.content, status)
           last.resultUrl = status === "active" ? resultPreviewUrl(appId, url, updatedApp?.version) : null
           last.resultStatus = status
+          last.resultError = error
         }
         if (currentAppId.value === appId) {
           messages.value = appMessages
@@ -563,7 +566,7 @@ async function resumeGeneratingApp(appId: string) {
       (progress) => {
         setAppProgress(appId, progress)
       },
-      async (url, status) => {
+      async (url, status, error) => {
         clearAppProgress(appId)
         const currentMessages = messageCache.value[appId]
         const target = currentMessages?.[resumeStreams[appId]?.messageIndex ?? -1]
@@ -584,6 +587,7 @@ async function resumeGeneratingApp(appId: string) {
           target.content = status === "active" ? "应用已生成或更新，可以在右侧预览。" : normalizeGeneratedContent(target.content, status)
           target.resultUrl = status === "active" ? resultPreviewUrl(appId, url, updatedApp?.version) : null
           target.resultStatus = status
+          target.resultError = error
         }
         if (currentAppId.value === appId) {
           messages.value = currentMessages

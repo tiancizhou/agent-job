@@ -196,13 +196,13 @@ export async function listUsageRecords(limit = 20, offset = 0): Promise<UsageRec
 
 // Calls POST /api/apps/:id/chat via fetch with SSE parsing.
 // onChunk(content) is called for each text chunk.
-// onResult(url, status) is called when the result event arrives.
+// onResult(url, status, error) is called when the result event arrives.
 export async function sendChat(
   appId: string,
   message: string,
   onChunk: (content: string) => void,
   onProgress: (progress: string) => void,
-  onResult: (url: string | null, status: string) => void,
+  onResult: (url: string | null, status: string, error?: string | null) => void,
 ): Promise<void> {
   const res = await fetch(`${BASE}/apps/${appId}/chat`, {
     method: "POST",
@@ -243,7 +243,7 @@ export async function sendChat(
           } else if (currentEvent === "progress") {
             onProgress(parsed.content ?? "")
           } else if (currentEvent === "result") {
-            onResult(parsed.url ?? null, parsed.status ?? "failed")
+            onResult(parsed.url ?? null, parsed.status ?? "failed", parsed.error ?? null)
           }
         } catch {
           // Ignore malformed JSON
@@ -264,7 +264,7 @@ export async function sendChat(
         if (currentEvent === "message") {
           onChunk(parsed.content ?? "")
         } else if (currentEvent === "result") {
-          onResult(parsed.url ?? null, parsed.status ?? "failed")
+          onResult(parsed.url ?? null, parsed.status ?? "failed", parsed.error ?? null)
         }
       } catch {
         // Ignore

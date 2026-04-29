@@ -34,6 +34,7 @@ class GenerationState:
     done: bool = False
     status: str | None = None
     url: str | None = None
+    error: str | None = None
     task: asyncio.Task | None = None
 
 
@@ -87,7 +88,7 @@ async def _subscribe_generation(app_id: str, state: GenerationState) -> AsyncIte
         yield _sse("message", {"content": chunk})
 
     if state.done:
-        yield _sse("result", {"url": state.url, "status": state.status})
+        yield _sse("result", {"url": state.url, "status": state.status, "error": state.error})
         return
 
     queue: asyncio.Queue = asyncio.Queue()
@@ -125,7 +126,8 @@ async def _run_html_generation(
             state.done = True
             state.status = "failed"
             state.url = None
-            await _publish(state, "result", {"url": None, "status": "failed"})
+            state.error = "应用不存在，请刷新后重试。"
+            await _publish(state, "result", {"url": None, "status": "failed", "error": state.error})
             return
 
         semaphore = _get_generation_semaphore(settings.GENERATION_MAX_CONCURRENT)
@@ -133,8 +135,9 @@ async def _run_html_generation(
             app.status = "failed" if (app.version or 0) == 0 else "edit_failed"
             app.progress = None
             state.status = "busy"
+            state.error = "当前生成任务较多，请稍后再试。"
             db.commit()
-            await _publish(state, "message", {"content": "当前生成任务较多，请稍后再试。"})
+            await _publish(state, "message", {"content": state.error})
             return
 
         async with semaphore:
@@ -157,13 +160,14 @@ async def _run_html_generation(
                 )
             app.status = "failed" if (app.version or 0) == 0 else "edit_failed"
             app.progress = None
+            state.error = "生成过程中发生错误，请稍后重试。"
             db.commit()
     finally:
         app = db.query(App).filter(App.id == app_id).first()
         state.done = True
         state.status = state.status or (app.status if app else "failed")
         state.url = _active_app_url(app_id, settings) if app and app.status in {"active", "edit_failed"} and (app.version or 0) > 0 else None
-        await _publish(state, "result", {"url": state.url, "status": state.status})
+        await _publish(state, "result", {"url": state.url, "status": state.status, "error": state.error})
         db.close()
 
 
@@ -213,14 +217,21 @@ async def _generate_with_limit(
 
         reply_text = "".join(full_reply)
         await _publish(state, "progress", {"content": "正在解析项目文件..."})
-        saved_url = _save_generation_result(app, reply_text, is_first, settings)
+        try:
+            saved_url = _save_generation_result(app, reply_text, is_first, settings)
+        except code_service.ProjectValidationError as exc:
+            saved_url = None
+            state.error = str(exc)
 
         if saved_url:
             app.status = "active"
+            state.error = None
             app.version = (app.version or 0) + 1
             usage_status = "success"
         else:
             app.status = "failed" if is_first else "edit_failed"
+            if not state.error:
+                state.error = "模型返回的项目格式无法解析，请调整需求后重试。"
             usage_status = "failed"
 
         _record_usage(
@@ -258,6 +269,7 @@ async def _generate_with_limit(
                 )
             app.status = "failed" if (app.version or 0) == 0 else "edit_failed"
             app.progress = None
+            state.error = "生成过程中发生错误，请稍后重试。"
             db.commit()
 
 
@@ -295,22 +307,17 @@ def _build_project_messages(
 
 def _save_generation_result(app: App, reply_text: str, is_first: bool, settings: Settings) -> str | None:
     if is_first:
-        files = code_service.parse_project_json(reply_text)
-        if files:
-            code_service.save_project(app.id, files, settings.DATA_DIR)
-            app.entry_path = "index.html"
-            app.project_type = "project"
-            return f"/generated/{app.id}/project/index.html"
-    else:
-        project_index = code_service.project_dir_for(app.id, settings.DATA_DIR) / "index.html"
-        changes = code_service.parse_changes_json(reply_text)
-        if changes and project_index.exists():
-            code_service.save_changes(app.id, changes, settings.DATA_DIR)
-            app.entry_path = "index.html"
-            app.project_type = "project"
-            return f"/generated/{app.id}/project/index.html"
+        files = code_service.parse_project_json_or_raise(reply_text)
+        code_service.save_project(app.id, files, settings.DATA_DIR)
+        app.entry_path = "index.html"
+        app.project_type = "project"
+        return f"/generated/{app.id}/project/index.html"
 
-    return None
+    changes = code_service.parse_changes_json_or_raise(reply_text)
+    code_service.save_changes(app.id, changes, settings.DATA_DIR)
+    app.entry_path = "index.html"
+    app.project_type = "project"
+    return f"/generated/{app.id}/project/index.html"
 
 
 def _active_app_url(app_id: str, settings: Settings) -> str:

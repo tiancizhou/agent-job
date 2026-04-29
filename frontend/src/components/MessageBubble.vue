@@ -24,6 +24,7 @@
 
       <div class="result-panel__body">
         <p>{{ resultDescription }}</p>
+        <p v-if="resultError && resultStatus !== 'active'" class="result-panel__error">{{ resultError }}</p>
         <div v-if="resultUrl && resultStatus === 'active'" class="result-panel__actions">
           <a :href="resultUrl" target="_blank" rel="noopener noreferrer" class="result-panel__btn result-panel__btn--primary">
             预览应用
@@ -48,6 +49,7 @@ const props = defineProps<{
   content: string
   resultUrl?: string | null
   resultStatus?: string | null
+  resultError?: string | null
 }>()
 
 const codeStreamRef = ref<HTMLElement | null>(null)
@@ -78,6 +80,7 @@ const resultTitle = computed(() => {
   if (props.resultStatus === "active") return "应用已生成"
   if (props.resultStatus === "busy") return "生成任务较多"
   if (props.resultStatus === "failed") return "应用生成失败"
+  if (props.resultStatus === "edit_failed") return "应用修改失败"
   return "应用生成中"
 })
 
@@ -85,6 +88,7 @@ const resultDescription = computed(() => {
   if (props.resultStatus === "active") return "生成结果已自动收起，可以在右侧预览，也可以打开链接使用。"
   if (props.resultStatus === "busy") return "当前同时生成的任务较多，请稍后重新发送需求。"
   if (props.resultStatus === "failed") return "请调整需求后重新发送，QuickApp 会继续尝试生成。"
+  if (props.resultStatus === "edit_failed") return "已保留上一个可用版本，请调整需求后重新发送。"
   return "模型回复会保留在上方，生成完成后这里会自动收起。"
 })
 
@@ -257,7 +261,8 @@ async function copyResultUrl() {
   box-shadow: 0 0 18px rgba(16, 185, 129, 0.45);
 }
 
-.result-panel__status--failed {
+.result-panel__status--failed,
+.result-panel__status--edit_failed {
   background: #ef4444;
   box-shadow: 0 0 18px rgba(239, 68, 68, 0.35);
 }
@@ -282,6 +287,11 @@ async function copyResultUrl() {
   color: #64748b;
   font-size: 12px;
   line-height: 1.65;
+}
+
+.result-panel__body .result-panel__error {
+  color: #b45309;
+  font-weight: 650;
 }
 
 .result-panel__actions {

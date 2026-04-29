@@ -55,6 +55,47 @@ There is no runtime schema validation library (no Zod/Yup/io-ts). Validation is 
 
 Do not add a validation library unless the feature requires substantial client-side schema validation.
 
+## Scenario: Chat SSE Result Errors
+
+### 1. Scope / Trigger
+- Trigger: `/api/apps/{app_id}/chat` streams generation status across backend and frontend.
+- Applies to `sendChat()` and message components that render result state.
+
+### 2. Signatures
+- `sendChat(appId, message, onChunk, onProgress, onResult)`
+- `onResult: (url: string | null, status: string, error?: string | null) => void`
+
+### 3. Contracts
+- Backend `result` event payload may include `error` in addition to `url` and `status`.
+- `error` is already localized Chinese user-facing text; frontend should display it directly.
+- `edit_failed` means the previous usable app version is preserved, so preview may remain available elsewhere in the UI.
+
+### 4. Validation & Error Matrix
+- Missing `error` -> use existing generic failure copy.
+- `status === "failed"` with `error` -> show generation failure title and backend detail.
+- `status === "edit_failed"` with `error` -> show edit failure title and backend detail.
+- Malformed SSE JSON -> ignore, matching current `sendChat()` behavior.
+
+### 5. Good/Base/Bad Cases
+- Good: failed generation displays backend detail under the failure panel.
+- Base: successful generation ignores `error` and shows preview actions.
+- Bad: frontend maps backend error codes that do not exist or hides the backend detail.
+
+### 6. Tests Required
+- `npm run build` must pass after changing `sendChat()` callback signatures.
+- Manual/chat-flow verification should check failed generation and failed edit messages if possible.
+
+### 7. Wrong vs Correct
+#### Wrong
+```ts
+onResult(parsed.url ?? null, parsed.status ?? "failed")
+```
+
+#### Correct
+```ts
+onResult(parsed.url ?? null, parsed.status ?? "failed", parsed.error ?? null)
+```
+
 ---
 
 ## Common Patterns

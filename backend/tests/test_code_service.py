@@ -46,6 +46,12 @@ class ProjectCodeServiceTestCase(unittest.TestCase):
         payload = {"files": [{"path": "pages/home.html", "content": "<html></html>"}]}
 
         self.assertIsNone(code_service.parse_project_json(json.dumps(payload)))
+        with self.assertRaisesRegex(code_service.ProjectValidationError, "缺少必要文件"):
+            code_service.parse_project_json_or_raise(json.dumps(payload))
+
+    def test_parse_project_json_rejects_invalid_json_with_detail(self):
+        with self.assertRaisesRegex(code_service.ProjectValidationError, "不是有效 JSON"):
+            code_service.parse_project_json_or_raise("not json")
 
     def test_parse_project_json_rejects_unsafe_paths(self):
         unsafe_paths = [
@@ -112,6 +118,62 @@ class ProjectCodeServiceTestCase(unittest.TestCase):
 
             self.assertEqual("body { color: blue; }", (project_dir / "css" / "style.css").read_text(encoding="utf-8"))
             self.assertEqual("console.log('old')", (project_dir / "js" / "app.js").read_text(encoding="utf-8"))
+
+    def test_save_project_rejects_invalid_entries_without_removing_existing_project(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_files = [
+                {"path": "index.html", "content": "<html>old</html>"},
+                {"path": "css/style.css", "content": "body { color: black; }"},
+                {"path": "js/app.js", "content": "console.log('old')"},
+            ]
+            project_dir = code_service.save_project("app-1", original_files, tmpdir)
+
+            with self.assertRaises(code_service.ProjectValidationError):
+                code_service.save_project("app-1", [{"path": "../bad.txt", "content": "bad"}], tmpdir)
+
+            self.assertEqual("<html>old</html>", (project_dir / "index.html").read_text(encoding="utf-8"))
+            self.assertEqual("body { color: black; }", (project_dir / "css" / "style.css").read_text(encoding="utf-8"))
+
+    def test_save_changes_rejects_invalid_entries_without_partial_write(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_files = [
+                {"path": "index.html", "content": "<html>old</html>"},
+                {"path": "css/style.css", "content": "body { color: black; }"},
+                {"path": "js/app.js", "content": "console.log('old')"},
+            ]
+            project_dir = code_service.save_project("app-1", original_files, tmpdir)
+
+            with self.assertRaises(code_service.ProjectValidationError):
+                code_service.save_changes("app-1", [
+                    {"path": "css/style.css", "content": "body { color: blue; }"},
+                    {"path": "../bad.txt", "content": "bad"},
+                ], tmpdir)
+
+            self.assertEqual("body { color: black; }", (project_dir / "css" / "style.css").read_text(encoding="utf-8"))
+            self.assertEqual("console.log('old')", (project_dir / "js" / "app.js").read_text(encoding="utf-8"))
+
+    def test_save_changes_rejects_final_project_file_count_over_limit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_files = [
+                {"path": "index.html", "content": "<html>old</html>"},
+                {"path": "css/style.css", "content": "body { color: black; }"},
+                {"path": "js/app.js", "content": "console.log('old')"},
+                *[
+                    {"path": f"existing/{i}.html", "content": "<html></html>"}
+                    for i in range(9)
+                ],
+            ]
+            project_dir = code_service.save_project("app-1", original_files, tmpdir)
+            changes = [
+                {"path": f"pages/{i}.html", "content": "<html></html>"}
+                for i in range(code_service.MAX_CHANGE_FILES)
+            ]
+
+            with self.assertRaisesRegex(code_service.ProjectValidationError, "文件数量超过上限"):
+                code_service.save_changes("app-1", changes, tmpdir)
+
+            self.assertEqual("body { color: black; }", (project_dir / "css" / "style.css").read_text(encoding="utf-8"))
+            self.assertFalse((project_dir / "pages" / "0.html").exists())
 
 
 if __name__ == "__main__":
