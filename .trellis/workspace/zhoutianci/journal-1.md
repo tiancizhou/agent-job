@@ -38,3 +38,36 @@ Initialized Claude/Trellis project configuration and populated backend/frontend 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: 生成产物校验和失败恢复
+
+**Date**: 2026-04-29
+**Task**: 生成产物校验和失败恢复
+**Branch**: `main`
+
+### Summary
+
+实现生成项目原子保存、校验失败中文详情、SSE result.error 前端展示，并更新相关 Trellis 规范。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `128edea` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
