@@ -1,4 +1,5 @@
 import importlib
+import json
 import os
 import sys
 import tempfile
@@ -338,7 +339,19 @@ class AuthTestCase(unittest.TestCase):
         from config import Settings
         from services import ai_service, app_service
 
-        project_reply = '{"files":[{"path":"index.html","content":"<html><link rel=\\"stylesheet\\" href=\\"css/style.css\\"><script src=\\"js/app.js\\"></script></html>"},{"path":"css/style.css","content":"body { color: green; }"},{"path":"js/app.js","content":"console.log(\\"ok\\")"}]}'
+        next_files = [
+            {
+                "path": "package.json",
+                "content": '{"scripts":{"build":"next build"},"dependencies":{"next":"latest","react":"latest","react-dom":"latest"},"devDependencies":{"typescript":"latest","@types/node":"latest","@types/react":"latest","@types/react-dom":"latest"}}',
+            },
+            {"path": "next.config.ts", "content": "const nextConfig = { output: 'export', assetPrefix: './', images: { unoptimized: true } }; export default nextConfig;"},
+            {"path": "tsconfig.json", "content": "{}"},
+            {"path": "next-env.d.ts", "content": "/// <reference types=\"next\" />"},
+            {"path": "app/layout.tsx", "content": "import './globals.css'; export default function RootLayout({ children }) { return <html><body>{children}</body></html>; }"},
+            {"path": "app/page.tsx", "content": "export default function Page() { return <main>ok</main>; }"},
+            {"path": "app/globals.css", "content": "body { color: green; }"},
+        ]
+        project_reply = json.dumps({"files": next_files})
 
         async def stream_project(messages, settings):
             yield ai_service.StreamChatEvent(content=project_reply)
@@ -347,25 +360,38 @@ class AuthTestCase(unittest.TestCase):
         db_gen = self.database.SessionLocal()
         try:
             app = db_gen.query(self.models.App).filter(self.models.App.id == app_id).first()
+            def fake_build(source_dir):
+                out_dir = source_dir / "out"
+                static_dir = out_dir / "_next" / "static" / "chunks"
+                static_dir.mkdir(parents=True, exist_ok=True)
+                (out_dir / "index.html").write_text("<html><script src='_next/static/chunks/app.js'></script></html>", encoding="utf-8")
+                (static_dir / "app.js").write_text("console.log('ok')", encoding="utf-8")
+                return out_dir
+
             with patch.object(ai_service, "stream_chat_events", stream_project):
-                with patch.object(
-                    ai_service,
-                    "non_streaming_chat_with_usage",
-                    return_value=ai_service.ChatResult(
-                        content="项目",
-                        usage=ai_service.TokenUsage(prompt_tokens=3, completion_tokens=2, total_tokens=5),
-                    ),
-                ):
-                    events = []
-                    async def _run():
-                        async for event in app_service.handle_chat(app, "生成多页面项目", db_gen, Settings()):
-                            events.append(event)
-                    asyncio.run(_run())
+                with patch.object(app_service.code_service, "build_static_export", fake_build):
+                    with patch.object(
+                        ai_service,
+                        "non_streaming_chat_with_usage",
+                        return_value=ai_service.ChatResult(
+                            content="项目",
+                            usage=ai_service.TokenUsage(prompt_tokens=3, completion_tokens=2, total_tokens=5),
+                        ),
+                    ):
+                        events = []
+                        async def _run():
+                            async for event in app_service.handle_chat(app, "生成多页面项目", db_gen, Settings()):
+                                events.append(event)
+                        asyncio.run(_run())
         finally:
             db_gen.close()
 
-        project_dir = Path(self.tmp.name) / "data" / "apps" / app_id / "project"
-        self.assertEqual("body { color: green; }", (project_dir / "css" / "style.css").read_text(encoding="utf-8"))
+        app_dir = Path(self.tmp.name) / "data" / "apps" / app_id
+        source_dir = app_dir / "source"
+        project_dir = app_dir / "project"
+        self.assertEqual("body { color: green; }", (source_dir / "app" / "globals.css").read_text(encoding="utf-8"))
+        self.assertTrue((project_dir / "index.html").is_file())
+        self.assertTrue((project_dir / "_next" / "static" / "chunks" / "app.js").is_file())
         self.assertTrue(any(f"/generated/{app_id}/project/index.html" in event for event in events))
 
         db = self.database.SessionLocal()

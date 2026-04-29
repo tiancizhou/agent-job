@@ -24,6 +24,7 @@ There is no separate backend lint/typecheck command configured in the repo at bo
 - Do not query or mutate user-owned apps without `App.user_id == current_user.id`, except public generated-app serving and generated-app data endpoints that intentionally use app status/version access rules.
 - Do not write generated files from LLM output without `code_service` path validation. Preserve `is_safe_project_path()` and `resolve_project_file()` checks.
 - Do not accept absolute paths, traversal paths, Windows drive paths, backslashes, unsupported extensions, too many files, or oversized files for generated projects.
+- Do not allow generated Next.js projects to declare server/runtime paths (`app/api/*`, `pages/api/*`, middleware, route handlers) or unsafe `package.json` scripts/dependencies/version specifiers.
 - Do not store generated app user data in local files or localStorage from backend code; persistence goes through `AppDataRecord` and `/api/generated/{app_id}/data/{collection}`.
 - Do not add new dependencies or framework layers unless the feature clearly requires them.
 - Do not commit secrets or `.env` values.
@@ -38,7 +39,7 @@ There is no separate backend lint/typecheck command configured in the repo at bo
 - Preserve cookie-based auth behavior in `auth_service.py`: HTTP-only `quickapp_session`, 7-day expiry, active employee check.
 - Preserve generated app cache busting/serving contract: generated project files are served under `/generated/{app_id}/project/...` with `Cache-Control: no-store`.
 - For chat/generation, preserve SSE event names expected by the frontend: `message`, `progress`, and `result`.
-- Keep LLM-generated project requirements in sync with tests and code: generation must include `index.html`, `css/style.css`, and `js/app.js`.
+- Keep LLM-generated project requirements in sync with tests and code: generation must include the fixed Next.js App Router + TypeScript MVP source files, build with static export enabled, use nested-preview-safe `_next` asset paths, and publish only built `out/` artifacts to `project/` for preview.
 
 ---
 

@@ -56,7 +56,8 @@ Keep new backend code in the existing layers:
 - Keep request handlers thin: validate request/user ownership, call services for orchestration, perform simple DB reads/writes, then return ORM/Pydantic responses. Examples: `/backend/routers/chat.py` delegates streaming work to `app_service.handle_chat()`, and `/backend/routers/apps.py` delegates generated-project path logic to `code_service`.
 - Put cross-route helpers in `/backend/services/`. Examples: authentication dependencies in `/backend/services/auth_service.py`, LLM calls in `/backend/services/ai_service.py`, and generated file parsing/safety in `/backend/services/code_service.py`.
 - Keep DB models and API schemas in `/backend/models.py` to match the current codebase. Do not introduce a separate `schemas/` package unless doing a larger refactor.
-- For generated files, preserve the existing storage convention: `settings.DATA_DIR/apps/{app_id}/project/` for multi-file generated projects, accessed through `code_service.project_dir_for()` and `code_service.resolve_project_file()`.
+- For generated files, preserve the preview-serving convention: `settings.DATA_DIR/apps/{app_id}/project/` contains only previewable static artifacts, accessed through `code_service.project_dir_for()` and `code_service.resolve_project_file()`.
+- For generated Next.js applications, store editable source separately under `settings.DATA_DIR/apps/{app_id}/source/`, accessed through `code_service.source_dir_for()` / `read_source_files()`. The LLM edit prompt reads `source/`; `/generated/{app_id}/project/...` serves only the built static export output.
 
 ---
 

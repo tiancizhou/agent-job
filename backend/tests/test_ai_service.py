@@ -35,20 +35,37 @@ class AiServicePromptTestCase(unittest.TestCase):
         self.assertEqual(30, usage.completion_tokens)
         self.assertEqual(50, usage.total_tokens)
 
-    def test_project_generation_prompt_requires_mobile_first_output(self):
+    def test_project_generation_prompt_requires_next_static_export_output(self):
         prompt = ai_service.PROJECT_GENERATE_SYSTEM_PROMPT
 
-        self.assertIn("viewport", prompt)
-        self.assertIn("width=device-width", prompt)
+        self.assertIn("Next.js", prompt)
+        self.assertIn("TypeScript", prompt)
+        self.assertIn("App Router", prompt)
+        self.assertIn("package.json", prompt)
+        self.assertIn("app/page.tsx", prompt)
+        self.assertIn('output: "export"', prompt)
+        self.assertIn("images: { unoptimized: true }", prompt)
+        self.assertIn('assetPrefix: "./"', prompt)
+        self.assertIn("/generated/{app_id}/project/index.html", prompt)
+        self.assertIn("禁止输出 index.html", prompt)
+        self.assertIn("API routes", prompt)
+        self.assertIn("Server Actions", prompt)
         self.assertIn("mobile-first", prompt)
         self.assertIn("375px", prompt)
         self.assertIn("44px", prompt)
         self.assertIn("@media (min-width: 768px)", prompt)
 
-    def test_project_modify_prompt_preserves_mobile_adaptation(self):
+    def test_project_modify_prompt_preserves_next_static_export_and_mobile_adaptation(self):
         prompt = ai_service.PROJECT_MODIFY_SYSTEM_PROMPT
 
-        self.assertIn("viewport", prompt)
+        self.assertIn("Next.js", prompt)
+        self.assertIn("TypeScript", prompt)
+        self.assertIn('output: "export"', prompt)
+        self.assertIn("images: { unoptimized: true }", prompt)
+        self.assertIn('assetPrefix: "./"', prompt)
+        self.assertIn("/generated/{app_id}/project/index.html", prompt)
+        self.assertIn("不要改回 index.html", prompt)
+        self.assertIn("Route Handlers", prompt)
         self.assertIn("mobile-first", prompt)
         self.assertIn("不要破坏", prompt)
         self.assertIn("44px", prompt)

@@ -76,32 +76,40 @@ data: {"url": null, "status": "failed"}
 - `code_service.parse_changes_json_or_raise(text: str) -> list[dict[str, str]]`
 - `code_service.save_project(app_id: str, files: list[dict[str, str]], data_dir: str) -> Path`
 - `code_service.save_changes(app_id: str, changes: list[dict[str, str]], data_dir: str) -> Path`
+- `code_service.read_source_files(app_id: str, data_dir: str) -> list[dict[str, str]]`
 - SSE result payload: `{"url": string | null, "status": string, "error": string | null}`
 
 ### 3. Contracts
 - Generate responses must contain `files`; edit responses must contain `changes`.
-- Generated projects must include `index.html`, `css/style.css`, and `js/app.js`.
-- `save_project()` and `save_changes()` must perform atomic replacement through temporary project directories.
-- `edit_failed` means the previous usable project version is still available.
+- Generated projects must include the fixed Next.js App Router + TypeScript MVP source files: `package.json`, `next.config.ts`, `tsconfig.json`, `next-env.d.ts`, `app/layout.tsx`, `app/page.tsx`, and `app/globals.css`.
+- `next.config.ts` must enable static export with `output: "export"`, `images.unoptimized = true`, and `assetPrefix: "./"` so generated `_next` assets are suitable for nested preview hosting; generated sources must not include Next.js server/runtime paths such as `app/api/*`, `pages/api/*`, middleware files, or route handler files.
+- `save_project()` and `save_changes()` must write editable source under `source/`, run the build/export step, rewrite root-relative `/_next/...` asset references in export artifacts to file-relative `_next` paths, and only publish the static export output under `project/` after success.
+- `edit_failed` means the previous usable `source/` and `project/` version is still available.
 - `error` is user-facing Chinese text suitable for direct UI display.
 
 ### 4. Validation & Error Matrix
 - Invalid JSON -> `ProjectValidationError` with a Chinese parse failure reason.
 - Missing required generated files -> `ProjectValidationError` listing missing paths.
 - Unsafe path / unsupported extension / traversal / Windows drive path -> `ProjectValidationError`.
+- Next.js runtime paths (`app/api/*`, `pages/api/*`, middleware, route handlers) -> `ProjectValidationError`.
+- Unsafe `package.json` scripts, dependency names, or dependency version specifiers such as URL/git/file references -> `ProjectValidationError`.
+- Missing or invalid static export config -> `ProjectValidationError`.
 - Too many files or oversized content -> `ProjectValidationError`.
-- Edit without an existing project -> `ProjectValidationError` and `edit_failed` when the app already had a version.
+- Build failure or missing `out/index.html` -> `ProjectValidationError` and no preview replacement.
+- Edit without an existing source project -> `ProjectValidationError` and `edit_failed` when the app already had a version.
 - Unexpected generation exception -> terminal `failed` or `edit_failed` plus generic Chinese `error`.
 
 ### 5. Good/Base/Bad Cases
-- Good: valid generated JSON writes to a temp directory and then replaces `/data/apps/{id}/project`.
-- Base: valid edit copies the current project to temp, applies all changes, validates final project limits, then replaces the target.
-- Bad: parsing fails or a later file is invalid; no existing project files are overwritten or removed.
+- Good: valid generated JSON writes source files to a temp source directory, builds static export output, then atomically replaces `/data/apps/{id}/source` and `/data/apps/{id}/project`.
+- Base: valid edit copies the current source project to temp, applies all changes, validates final source limits, rebuilds, then replaces source and preview output after build success.
+- Bad: parsing, validation, build, or export publishing fails; no existing source or preview files are overwritten or removed.
 
 ### 6. Tests Required
 - Unit tests for parse errors with `ProjectValidationError` details.
 - Unit tests proving invalid `save_project()` input does not remove an existing project.
 - Unit tests proving invalid `save_changes()` input does not partially write earlier changes.
+- Unit tests proving build failures preserve the previous `source/` and `project/` directories.
+- Unit tests proving unsafe `package.json` dependency versions are rejected.
 - Unit tests proving the final edited project still respects total file-count and file-size limits.
 
 ### 7. Wrong vs Correct

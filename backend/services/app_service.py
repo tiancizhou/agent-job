@@ -314,9 +314,9 @@ def _build_project_messages(
         messages: list[dict] = [{"role": "system", "content": ai_service.PROJECT_GENERATE_SYSTEM_PROMPT}]
     else:
         messages = [{"role": "system", "content": ai_service.PROJECT_MODIFY_SYSTEM_PROMPT}]
-        project_files = code_service.read_project_files(app.id, settings.DATA_DIR)
+        project_files = code_service.read_source_files(app.id, settings.DATA_DIR)
         if project_files:
-            messages.append({"role": "system", "content": f"当前项目文件：\n{json.dumps(project_files, ensure_ascii=False)}"})
+            messages.append({"role": "system", "content": f"当前 Next.js 源项目文件：\n{json.dumps(project_files, ensure_ascii=False)}"})
         else:
             html_path = Path(settings.DATA_DIR) / "apps" / app.id / "index.html"
             if html_path.exists():
