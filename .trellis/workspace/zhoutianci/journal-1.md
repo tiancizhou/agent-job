@@ -71,3 +71,39 @@ Initialized Claude/Trellis project configuration and populated backend/frontend 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Frontend preview edit UX MVP
+
+**Date**: 2026-04-29
+**Task**: Frontend preview edit UX MVP
+**Branch**: `main`
+
+### Summary
+
+Implemented lightweight frontend preview/edit guidance, recorded decisions to skip version history and full generated-app data permissions, then archived the related Trellis tasks.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bc9956c` | (see git log) |
+| `5da32b3` | (see git log) |
+| `e39998d` | (see git log) |
+| `7c47368` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
