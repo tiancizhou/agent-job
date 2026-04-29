@@ -76,6 +76,8 @@ export interface UsageRecord {
   updated_at: string
 }
 
+export type DevicePreference = "mobile" | "desktop" | "responsive"
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     credentials: "include",
@@ -200,6 +202,7 @@ export async function listUsageRecords(limit = 20, offset = 0): Promise<UsageRec
 export async function sendChat(
   appId: string,
   message: string,
+  devicePreference: DevicePreference,
   onChunk: (content: string) => void,
   onProgress: (progress: string) => void,
   onResult: (url: string | null, status: string, error?: string | null) => void,
@@ -208,7 +211,7 @@ export async function sendChat(
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, device_preference: devicePreference }),
   })
 
   if (!res.ok) throw new Error(`Chat request failed: ${res.status}`)

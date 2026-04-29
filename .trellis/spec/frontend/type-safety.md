@@ -98,6 +98,48 @@ onResult(parsed.url ?? null, parsed.status ?? "failed", parsed.error ?? null)
 
 ---
 
+## Scenario: Chat Device Preference
+
+### 1. Scope / Trigger
+- Trigger: Chat generation/editing accepts a cross-layer layout target from the composer UI.
+- Applies to `DevicePreference`, `sendChat()`, and chat composer controls.
+
+### 2. Signatures
+- `export type DevicePreference = "mobile" | "desktop" | "responsive"`
+- `sendChat(appId, message, devicePreference, onChunk, onProgress, onResult)`
+
+### 3. Contracts
+- `sendChat()` request body must include `device_preference` with the current `DevicePreference` value.
+- UI default is `mobile`; users can switch before sending.
+- The field is request-only; do not persist it on apps unless a later task explicitly changes scope.
+
+### 4. Validation & Error Matrix
+- UI unset state -> initialize as `mobile`.
+- Unknown server behavior -> backend normalizes invalid values, so frontend should keep the union strict rather than sending arbitrary strings.
+- Resume stream with empty message -> still pass the current preference; existing backend generation subscriptions ignore it.
+
+### 5. Good/Base/Bad Cases
+- Good: `{ message, device_preference: "desktop" }` when the user selects desktop.
+- Base: `{ message, device_preference: "mobile" }` for default sends.
+- Bad: omitting `device_preference` after adding the UI, causing frontend/backend prompt behavior to drift.
+
+### 6. Tests Required
+- `npm run build` must pass after changing `sendChat()` signature/callers.
+- Manual chat verification should check the default state and switching between all three options before sending.
+
+### 7. Wrong vs Correct
+#### Wrong
+```ts
+body: JSON.stringify({ message })
+```
+
+#### Correct
+```ts
+body: JSON.stringify({ message, device_preference: devicePreference })
+```
+
+---
+
 ## Common Patterns
 
 - Type DOM refs explicitly: `ref<HTMLTextAreaElement | null>(null)`, `ref<HTMLElement | null>(null)` in `ChatPanel.vue`.

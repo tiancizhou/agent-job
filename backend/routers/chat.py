@@ -14,6 +14,7 @@ router = APIRouter()
 
 class ChatRequest(BaseModel):
     message: str = ""
+    device_preference: str = "mobile"
 
 
 @router.post("/apps/{app_id}/chat")
@@ -33,6 +34,7 @@ async def chat(
             user_message=body.message,
             db=db,
             settings=settings,
+            device_preference=body.device_preference,
         ):
             yield event
 

@@ -42,13 +42,40 @@ _generation_states: dict[str, GenerationState] = {}
 _generation_semaphore: asyncio.Semaphore | None = None
 _generation_semaphore_limit: int | None = None
 
+VALID_DEVICE_PREFERENCES = {"mobile", "desktop", "responsive"}
+
+
+def normalize_device_preference(value: str | None) -> str:
+    return value if value in VALID_DEVICE_PREFERENCES else "mobile"
+
+
+def _device_preference_prompt(device_preference: str) -> str:
+    prompts = {
+        "mobile": (
+            "设备布局目标：手机端优先。请优先为手机竖屏和触控操作设计，375px 宽度下必须可读、可点、无横向滚动；"
+            "桌面端只作为增强适配。"
+        ),
+        "desktop": (
+            "设备布局目标：电脑端优先。请优先为桌面宽屏使用设计，合理利用横向空间、网格和多栏布局；"
+            "同时保留基础响应式能力，确保手机端不出现横向滚动或不可用控件。"
+        ),
+        "responsive": (
+            "设备布局目标：自适应。请同时兼顾手机端和电脑端体验，使用流式布局、弹性网格和清晰断点；"
+            "手机端与桌面端都必须可读、可点、无横向滚动。"
+        ),
+    }
+    return prompts[normalize_device_preference(device_preference)]
+
 
 async def handle_chat(
     app: App,
     user_message: str,
     db: Session,
     settings: Settings,
+    device_preference: str | None = None,
 ) -> AsyncIterator[str]:
+    device_preference = normalize_device_preference(device_preference)
+
     state = _generation_states.get(app.id)
     if state and not state.done:
         async for chunk in _subscribe_generation(app.id, state):
@@ -77,7 +104,7 @@ async def handle_chat(
 
     state = GenerationState()
     _generation_states[app.id] = state
-    state.task = asyncio.create_task(_run_html_generation(app.id, user_message, settings, state))
+    state.task = asyncio.create_task(_run_html_generation(app.id, user_message, settings, state, device_preference))
 
     async for chunk in _subscribe_generation(app.id, state):
         yield chunk
@@ -114,6 +141,7 @@ async def _run_html_generation(
     user_message: str,
     settings: Settings,
     state: GenerationState,
+    device_preference: str,
 ) -> None:
     db = SessionLocal()
     messages: list[dict] = []
@@ -141,7 +169,7 @@ async def _run_html_generation(
             return
 
         async with semaphore:
-            await _generate_with_limit(app, user_message, settings, state, db)
+            await _generate_with_limit(app, user_message, settings, state, db, device_preference)
             return
 
     except Exception:
@@ -186,6 +214,7 @@ async def _generate_with_limit(
     settings: Settings,
     state: GenerationState,
     db: Session,
+    device_preference: str,
 ) -> None:
     messages: list[dict] = []
     full_reply: list[str] = []
@@ -205,7 +234,7 @@ async def _generate_with_limit(
             .all()
         )
 
-        messages = _build_project_messages(app, user_message, prior_conversations, settings, db)
+        messages = _build_project_messages(app, user_message, prior_conversations, settings, db, device_preference)
 
         async for event in ai_service.stream_chat_events(messages, settings):
             if event.content:
@@ -279,6 +308,7 @@ def _build_project_messages(
     prior_conversations: list[Conversation],
     settings: Settings,
     db: Session,
+    device_preference: str | None = None,
 ) -> list[dict]:
     if app.version == 0:
         messages: list[dict] = [{"role": "system", "content": ai_service.PROJECT_GENERATE_SYSTEM_PROMPT}]
@@ -293,6 +323,8 @@ def _build_project_messages(
                 current_html = html_path.read_text(encoding="utf-8")
                 messages = [{"role": "system", "content": LEGACY_HTML_SYSTEM_PROMPT}]
                 messages.append({"role": "system", "content": f"Current HTML:\n{current_html}"})
+
+    messages.append({"role": "system", "content": _device_preference_prompt(normalize_device_preference(device_preference))})
 
     style_prompt = _get_style_prompt(app, db)
     if style_prompt:

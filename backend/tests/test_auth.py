@@ -394,6 +394,28 @@ class AuthTestCase(unittest.TestCase):
         finally:
             db.close()
 
+    def test_project_messages_include_device_preference_prompt(self):
+        from config import Settings
+        from services import app_service
+
+        db = self.database.SessionLocal()
+        try:
+            app = self.models.App(id="device-pref-app", user_id=1, version=0)
+            messages = app_service._build_project_messages(app, "做一个活动页", [], Settings(), db, "desktop")
+            contents = [message["content"] for message in messages if message["role"] == "system"]
+            self.assertTrue(any("设备布局目标：电脑端优先" in content for content in contents))
+            self.assertTrue(any("宽屏" in content for content in contents))
+
+            messages = app_service._build_project_messages(app, "做一个活动页", [], Settings(), db, "responsive")
+            contents = [message["content"] for message in messages if message["role"] == "system"]
+            self.assertTrue(any("设备布局目标：自适应" in content for content in contents))
+
+            messages = app_service._build_project_messages(app, "做一个活动页", [], Settings(), db, "bad-value")
+            contents = [message["content"] for message in messages if message["role"] == "system"]
+            self.assertTrue(any("设备布局目标：手机端优先" in content for content in contents))
+        finally:
+            db.close()
+
     def test_generation_returns_busy_result_when_concurrency_limit_is_reached(self):
         db = self.database.SessionLocal()
         try:

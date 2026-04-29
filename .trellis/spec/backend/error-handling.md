@@ -118,6 +118,50 @@ write_project_files(temp_dir, files)
 replace_project_dir(project_dir, temp_dir, backup_dir)
 ```
 
+## Scenario: Chat Device Preference
+
+### 1. Scope / Trigger
+- Trigger: `/api/apps/{app_id}/chat` accepts a request field that changes generation/edit prompt constraints.
+- Applies to `routers/chat.py` and `services/app_service.py` message construction.
+
+### 2. Signatures
+- `ChatRequest.device_preference: str = "mobile"`
+- `app_service.normalize_device_preference(value: str | None) -> str`
+- `_build_project_messages(..., device_preference: str | None = None) -> list[dict]`
+
+### 3. Contracts
+- Accepted values: `mobile`, `desktop`, `responsive`.
+- Invalid or missing values normalize to `mobile`; do not reject the chat request.
+- `_build_project_messages()` must append a device layout `system` message for both generation and modification prompts.
+
+### 4. Validation & Error Matrix
+- `None` / missing -> `mobile`.
+- Unknown string -> `mobile`.
+- Valid value -> corresponding layout target prompt.
+- Existing in-progress generation subscription -> returns the existing stream; a new preference must not restart generation.
+
+### 5. Good/Base/Bad Cases
+- Good: desktop preference adds a system prompt requiring desktop-first wide-screen layout while preserving basic responsiveness.
+- Base: omitted preference still adds the mobile-first target prompt.
+- Bad: validating with HTTP 422/400 for unknown preference, increasing send friction.
+
+### 6. Tests Required
+- Unit/service test proving desktop and responsive prompts are included.
+- Unit/service test proving invalid values fall back to the mobile prompt.
+- Existing chat/generation tests must continue to pass with the default argument.
+
+### 7. Wrong vs Correct
+#### Wrong
+```python
+if body.device_preference not in VALID_DEVICE_PREFERENCES:
+    raise HTTPException(status_code=400, detail="Invalid device")
+```
+
+#### Correct
+```python
+device_preference = normalize_device_preference(body.device_preference)
+```
+
 ## Common Mistakes
 
 - Do not let unsafe file path details leak to clients; convert to 404 like `serve_generated_project_file()`.

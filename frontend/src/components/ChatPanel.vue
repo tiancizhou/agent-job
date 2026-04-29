@@ -25,54 +25,66 @@
             @input="autoResize"
           />
           <div class="home-hero__composer-footer">
-            <div class="home-hero__style-switcher">
-              <button
-                class="home-hero__style-icon-btn"
-                :class="{ 'home-hero__style-icon-btn--active': selectedStyleId !== null }"
-                type="button"
-                :title="'风格：' + currentStyleName"
-                @click.stop="isStylePickerOpen = !isStylePickerOpen"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <circle cx="8" cy="10" r="1.5" fill="currentColor" stroke="none"/>
-                  <circle cx="16" cy="10" r="1.5" fill="currentColor" stroke="none"/>
-                  <circle cx="12" cy="15" r="1.5" fill="currentColor" stroke="none"/>
-                </svg>
-                <span v-if="selectedStyleId" class="home-hero__style-dot" />
-              </button>
-              <span v-if="selectedStyleId" class="home-hero__style-name">{{ currentStyleName }}</span>
-              <Transition name="popover">
-                <div v-if="isStylePickerOpen" class="home-hero__style-popover" @click.stop>
-                  <div class="chat-panel__style-popover-header">选择参考风格</div>
-                  <div class="chat-panel__style-grid">
-                    <button
-                      class="chat-panel__style-card"
-                      :class="{ 'chat-panel__style-card--selected': selectedStyleId === null }"
-                      type="button"
-                      @click="toggleHomeStyle(null)"
-                    >
-                      <div class="chat-panel__style-thumb chat-panel__style-thumb--none">
-                        <span>默认</span>
-                      </div>
-                      <span class="chat-panel__style-label">无风格</span>
-                    </button>
-                    <button
-                      v-for="(style, index) in styles"
-                      :key="style.id"
-                      class="chat-panel__style-card"
-                      :class="{ 'chat-panel__style-card--selected': selectedStyleId === style.id }"
-                      type="button"
-                      @click="toggleHomeStyle(style.id)"
-                    >
-                      <div class="chat-panel__style-thumb" :class="`chat-panel__style-thumb--${index % 6}`">
-                        <span>{{ style.name.slice(0, 2) }}</span>
-                      </div>
-                      <span class="chat-panel__style-label">{{ style.name }}</span>
-                    </button>
+            <div class="home-hero__tools">
+              <div class="home-hero__device-toggle" role="group" aria-label="设备偏好">
+                <button
+                  v-for="option in deviceOptions"
+                  :key="option.value"
+                  class="home-hero__device-option"
+                  :class="{ 'home-hero__device-option--active': devicePreference === option.value }"
+                  type="button"
+                  :title="option.hint"
+                  @click="devicePreference = option.value"
+                >{{ option.label }}</button>
+              </div>
+              <div class="home-hero__style-switcher">
+                <button
+                  class="home-hero__style-pill"
+                  :class="{ 'home-hero__style-pill--active': selectedStyleId !== null }"
+                  type="button"
+                  :title="'风格：' + currentStyleName"
+                  @click.stop="isStylePickerOpen = !isStylePickerOpen"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <circle cx="8" cy="10" r="1.5" fill="currentColor" stroke="none"/>
+                    <circle cx="16" cy="10" r="1.5" fill="currentColor" stroke="none"/>
+                    <circle cx="12" cy="15" r="1.5" fill="currentColor" stroke="none"/>
+                  </svg>
+                  <span class="home-hero__style-pill-text">风格：{{ selectedStyleId ? currentStyleName : "选一个视觉风格" }}</span>
+                </button>
+                <Transition name="popover">
+                  <div v-if="isStylePickerOpen" class="home-hero__style-popover" @click.stop>
+                    <div class="chat-panel__style-popover-header">选择参考风格</div>
+                    <div class="chat-panel__style-grid">
+                      <button
+                        class="chat-panel__style-card"
+                        :class="{ 'chat-panel__style-card--selected': selectedStyleId === null }"
+                        type="button"
+                        @click="toggleHomeStyle(null)"
+                      >
+                        <div class="chat-panel__style-thumb chat-panel__style-thumb--none">
+                          <span>默认</span>
+                        </div>
+                        <span class="chat-panel__style-label">无风格</span>
+                      </button>
+                      <button
+                        v-for="(style, index) in styles"
+                        :key="style.id"
+                        class="chat-panel__style-card"
+                        :class="{ 'chat-panel__style-card--selected': selectedStyleId === style.id }"
+                        type="button"
+                        @click="toggleHomeStyle(style.id)"
+                      >
+                        <div class="chat-panel__style-thumb" :class="`chat-panel__style-thumb--${index % 6}`">
+                          <span>{{ style.name.slice(0, 2) }}</span>
+                        </div>
+                        <span class="chat-panel__style-label">{{ style.name }}</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </Transition>
+                </Transition>
+              </div>
             </div>
             <button
               class="home-hero__send-btn"
@@ -141,8 +153,8 @@
             <div class="chat-panel__toolbar">
               <div class="chat-panel__style-switcher">
                 <button
-                  class="chat-panel__style-icon-btn"
-                  :class="{ 'chat-panel__style-icon-btn--active': selectedStyleId !== null }"
+                  class="chat-panel__style-pill"
+                  :class="{ 'chat-panel__style-pill--active': selectedStyleId !== null }"
                   type="button"
                   :title="'风格：' + currentStyleName"
                   @click="isStylePickerOpen = !isStylePickerOpen"
@@ -153,7 +165,7 @@
                     <circle cx="16" cy="10" r="1.5" fill="currentColor" stroke="none"/>
                     <circle cx="12" cy="15" r="1.5" fill="currentColor" stroke="none"/>
                   </svg>
-                  <span v-if="selectedStyleId" class="chat-panel__style-dot" />
+                  <span>{{ selectedStyleId ? currentStyleName : "选风格" }}</span>
                 </button>
                 <Transition name="popover">
                   <div v-if="isStylePickerOpen" class="chat-panel__style-popover" @click.stop>
@@ -186,6 +198,17 @@
                     </div>
                   </div>
                 </Transition>
+              </div>
+              <div class="chat-panel__device-toggle" role="group" :aria-label="'设备偏好：' + currentDeviceOption.label">
+                <button
+                  v-for="option in deviceOptions"
+                  :key="option.value"
+                  class="chat-panel__device-option"
+                  :class="{ 'chat-panel__device-option--active': devicePreference === option.value }"
+                  type="button"
+                  :title="option.hint"
+                  @click="devicePreference = option.value"
+                >{{ option.shortLabel }}</button>
               </div>
               <span class="chat-panel__toolbar-divider" />
               <button
@@ -253,7 +276,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from "vue"
 import MessageBubble from "./MessageBubble.vue"
-import { createApp, getApp, getAppPreview, listConversations, sendChat, setAppStyle, type App, type Style } from "../api/index"
+import { createApp, getApp, getAppPreview, listConversations, sendChat, setAppStyle, type App, type DevicePreference, type Style } from "../api/index"
 
 const props = withDefaults(defineProps<{
   selectedAppId: string | null
@@ -285,6 +308,7 @@ const messages = ref<Message[]>([])
 const messageCache = ref<Record<string, Message[]>>({})
 const inputText = ref("")
 const selectedStyleId = ref<string | null>(null)
+const devicePreference = ref<DevicePreference>("mobile")
 const isStylePickerOpen = ref(false)
 const styleNotice = ref("")
 const streamingAppIds = ref<Set<string>>(new Set())
@@ -309,6 +333,12 @@ const promptTips = [
   "盲盒抽签器",
   "宠物档案卡",
   "小游戏计分板",
+]
+
+const deviceOptions: Array<{ value: DevicePreference; label: string; shortLabel: string; hint: string }> = [
+  { value: "mobile", label: "手机端", shortLabel: "手机", hint: "适合分享和触屏使用" },
+  { value: "desktop", label: "电脑端", shortLabel: "电脑", hint: "适合宽屏和复杂信息" },
+  { value: "responsive", label: "自适应", shortLabel: "自适应", hint: "同时兼顾手机和电脑" },
 ]
 
 const heroStyle = computed(() => ({
@@ -367,6 +397,7 @@ const previewDescription = computed(() => {
 })
 
 const currentStyleName = computed(() => props.styles.find((style) => style.id === selectedStyleId.value)?.name || "无风格")
+const currentDeviceOption = computed(() => deviceOptions.find((option) => option.value === devicePreference.value) || deviceOptions[0])
 const currentAppIsStreaming = computed(() => Boolean(currentAppId.value && streamingAppIds.value.has(currentAppId.value)))
 const streamProgress = computed(() => currentAppId.value ? streamProgressByAppId.value[currentAppId.value] || "" : "")
 
@@ -491,6 +522,7 @@ async function sendMessage() {
   await scrollToBottom()
 
   const appId = currentAppId.value!
+  const requestedDevicePreference = devicePreference.value
   setAppStreaming(appId, true)
   messageCache.value[appId] = messages.value
   startStatusPolling(appId)
@@ -499,6 +531,7 @@ async function sendMessage() {
     await sendChat(
       appId,
       userMessage,
+      requestedDevicePreference,
       // onChunk
       async (content) => {
         const appMessages = messageCache.value[appId]
@@ -576,6 +609,7 @@ async function resumeGeneratingApp(appId: string) {
     await sendChat(
       appId,
       "",
+      devicePreference.value,
       async (content) => {
         const currentMessages = messageCache.value[appId]
         const target = currentMessages?.[resumeStreams[appId]?.messageIndex ?? -1]
@@ -1013,6 +1047,57 @@ onUnmounted(() => {
   gap: 16px;
 }
 
+.home-hero__tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.home-hero__device-toggle,
+.chat-panel__device-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.home-hero__device-option,
+.chat-panel__device-option {
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.home-hero__device-option {
+  padding: 6px 10px;
+}
+
+.chat-panel__device-option {
+  padding: 5px 8px;
+}
+
+.home-hero__device-option:hover,
+.chat-panel__device-option:hover {
+  color: #0284c7;
+}
+
+.home-hero__device-option--active,
+.chat-panel__device-option--active {
+  background: rgba(14, 165, 233, 0.12);
+  color: #0284c7;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1);
+}
+
 .home-hero__style-switcher {
   position: relative;
   display: flex;
@@ -1020,48 +1105,35 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.home-hero__style-icon-btn {
-  position: relative;
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
+.home-hero__style-pill {
   border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(248, 250, 252, 0.8);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(248, 250, 252, 0.82);
   color: #64748b;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 7px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 720;
   cursor: pointer;
+  white-space: nowrap;
   transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
-.home-hero__style-icon-btn:hover {
-  border-color: rgba(14, 165, 233, 0.4);
+.home-hero__style-pill:hover,
+.home-hero__style-pill--active {
+  border-color: rgba(14, 165, 233, 0.46);
   color: #0284c7;
-  background: rgba(240, 249, 255, 0.9);
+  background: rgba(240, 249, 255, 0.92);
+  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.1);
 }
 
-.home-hero__style-icon-btn--active {
-  border-color: rgba(14, 165, 233, 0.5);
-  color: #0284c7;
-  background: rgba(240, 249, 255, 0.9);
-}
-
-.home-hero__style-dot {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #0284c7;
-  border: 1.5px solid #ffffff;
-}
-
-.home-hero__style-name {
-  color: #0284c7;
-  font-size: 13px;
-  font-weight: 650;
+.home-hero__style-pill-text {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .home-hero__style-popover {
@@ -1482,47 +1554,42 @@ onUnmounted(() => {
   flex: 1;
 }
 
-/* Style switcher icon button */
+/* Style switcher */
 .chat-panel__style-switcher {
   position: relative;
 }
 
-.chat-panel__style-icon-btn {
-  position: relative;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+.chat-panel__style-pill {
+  max-width: 128px;
+  min-height: 32px;
   border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 999px;
+  padding: 6px 10px;
   background: rgba(248, 250, 252, 0.9);
   color: #64748b;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 720;
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
-.chat-panel__style-icon-btn:hover {
-  border-color: rgba(14, 165, 233, 0.4);
+.chat-panel__style-pill span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-panel__style-pill:hover,
+.chat-panel__style-pill--active {
+  border-color: rgba(14, 165, 233, 0.46);
   color: #0284c7;
-  background: rgba(240, 249, 255, 0.9);
-}
-
-.chat-panel__style-icon-btn--active {
-  border-color: rgba(14, 165, 233, 0.5);
-  color: #0284c7;
-  background: rgba(240, 249, 255, 0.9);
-}
-
-.chat-panel__style-dot {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #0284c7;
-  border: 1.5px solid #ffffff;
+  background: rgba(240, 249, 255, 0.92);
+  box-shadow: 0 8px 18px rgba(14, 165, 233, 0.1);
 }
 
 /* Style grid popover */
@@ -1709,6 +1776,31 @@ onUnmounted(() => {
     padding: 14px;
   }
 
+  .home-hero__composer-footer {
+    align-items: flex-end;
+  }
+
+  .home-hero__tools {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .home-hero__device-toggle,
+  .chat-panel__device-toggle {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .chat-panel__toolbar {
+    gap: 5px;
+  }
+
+  .chat-panel__device-option {
+    min-height: 34px;
+    padding: 7px 8px;
+  }
+
   .home-hero__style-popover,
   .chat-panel__style-popover {
     left: 0;
@@ -1780,10 +1872,15 @@ onUnmounted(() => {
     font-size: 16px;
   }
 
-  .chat-panel__style-icon-btn,
+  .chat-panel__style-pill,
   .chat-panel__send-btn {
     min-width: 44px;
     min-height: 44px;
+  }
+
+  .chat-panel__style-pill {
+    max-width: 112px;
+    padding: 8px 10px;
   }
 
   .preview-card {
