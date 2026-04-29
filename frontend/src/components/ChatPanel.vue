@@ -427,14 +427,11 @@ async function loadSelectedApp(newId: string | null) {
       .filter((conversation) => conversation.role === "user" || conversation.role === "assistant")
       .map((conversation) => ({
         role: conversation.role as "user" | "assistant",
-        content: conversation.content,
+        content: conversation.role === "assistant" ? normalizeHistoricalAssistantContent(conversation.content) : conversation.content,
       }))
 
     const lastAssistant = [...loadedMessages].reverse().find((message) => message.role === "assistant")
     if (lastAssistant) {
-      if (looksLikeGeneratedArtifact(lastAssistant.content) && app.status === "active") {
-        lastAssistant.content = "应用已生成或更新，可以在右侧预览。"
-      }
       lastAssistant.resultStatus = app.status
       lastAssistant.resultUrl = app.status === "active" ? cacheBustPreviewUrl(currentPreviewBaseUrl.value || projectPreviewUrl(newId), app.version) : null
     }
@@ -666,6 +663,11 @@ function normalizeGeneratedContent(content: string, status: string): string {
   return content
 }
 
+function normalizeHistoricalAssistantContent(content: string): string {
+  if (looksLikeGeneratedArtifact(content)) return "应用已生成或更新，可以在右侧预览。"
+  return content
+}
+
 function looksLikeGeneratedArtifact(content: string): boolean {
   return content.includes("```html")
     || content.includes("```json")
@@ -848,6 +850,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
   background:
     radial-gradient(circle at 18% 12%, rgba(56, 189, 248, 0.2) 0%, transparent 26%),
     radial-gradient(circle at 82% 20%, rgba(251, 146, 60, 0.2) 0%, transparent 24%),
@@ -1135,6 +1139,8 @@ onUnmounted(() => {
   grid-template-columns: minmax(430px, 0.92fr) minmax(460px, 1.08fr);
   gap: 18px;
   padding: 18px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .chat-panel__workspace--collapsed {

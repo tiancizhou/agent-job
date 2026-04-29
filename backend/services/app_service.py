@@ -249,7 +249,7 @@ async def _generate_with_limit(
             id=str(uuid.uuid4()),
             app_id=app.id,
             role="assistant",
-            content=reply_text,
+            content=_assistant_conversation_summary(app.status, state.error),
         ))
         db.commit()
 
@@ -303,6 +303,16 @@ def _build_project_messages(
     if user_message and (not messages or messages[-1].get("content") != user_message):
         messages.append({"role": "user", "content": user_message})
     return messages
+
+
+def _assistant_conversation_summary(status: str, error: str | None = None) -> str:
+    if status == "active":
+        return "应用已生成或更新，可以在右侧预览。"
+    if status == "edit_failed":
+        return error or "应用修改失败，已保留上一个可用版本。"
+    if status == "failed":
+        return error or "应用生成失败，请调整需求后重试。"
+    return "应用生成已结束。"
 
 
 def _save_generation_result(app: App, reply_text: str, is_first: bool, settings: Settings) -> str | None:

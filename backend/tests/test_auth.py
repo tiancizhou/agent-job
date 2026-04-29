@@ -382,6 +382,15 @@ class AuthTestCase(unittest.TestCase):
             for record in usage:
                 self.assertEqual("unknown", record.provider)
                 self.assertEqual(0, float(record.cost))
+
+            assistant_message = db.query(self.models.Conversation).filter(
+                self.models.Conversation.app_id == app_id,
+                self.models.Conversation.role == "assistant",
+            ).first()
+            self.assertIsNotNone(assistant_message)
+            self.assertEqual("应用已生成或更新，可以在右侧预览。", assistant_message.content)
+            self.assertNotIn('"files"', assistant_message.content)
+            self.assertNotIn("css/style.css", assistant_message.content)
         finally:
             db.close()
 
