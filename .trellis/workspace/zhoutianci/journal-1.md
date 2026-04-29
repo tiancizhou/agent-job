@@ -243,3 +243,36 @@ Implemented Next.js + TypeScript source generation with backend build validation
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: Admin configurable LLM settings
+
+**Date**: 2026-04-29
+**Task**: Admin configurable LLM settings
+**Branch**: `main`
+
+### Summary
+
+Implemented admin-managed LLM base URL, model, and API key settings with database fallback behavior, masked API responses, frontend admin UI, migration, tests, and backend specs.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5048991` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
