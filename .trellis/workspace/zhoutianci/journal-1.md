@@ -210,3 +210,36 @@ Implemented lightweight frontend preview/edit guidance, recorded decisions to sk
 ### Next Steps
 
 - None - task complete
+
+
+## Session 7: Next.js static export generation MVP
+
+**Date**: 2026-04-29
+**Task**: Next.js static export generation MVP
+**Branch**: `main`
+
+### Summary
+
+Implemented Next.js + TypeScript source generation with backend build validation, static export preview publishing, nested asset path handling, tests, and backend specs.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a6c8442` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

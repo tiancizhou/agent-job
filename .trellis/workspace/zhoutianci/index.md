@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 6
+- **Total Sessions**: 7
 - **Last Active**: 2026-04-29
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~212 | Active |
+| `journal-1.md` | ~245 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 7 | 2026-04-29 | Next.js static export generation MVP | `a6c8442` | `main` |
 | 6 | 2026-04-29 | 设备偏好与风格发现性优化 | `c71b291` | `main` |
 | 5 | 2026-04-29 | QuickDa 用户定位文案优化 | `c0b09f1` | `main` |
 | 4 | 2026-04-29 | QuickDa 品牌与聊天体验收尾 | `07c03e3`, `af61c24`, `d126a0e`, `f54ff42`, `4f1f9b3` | `main` |
