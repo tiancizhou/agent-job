@@ -40,7 +40,7 @@ def create_employee(
 ):
     employee_no = body.employee_no.strip()
     if db.query(Employee).filter(Employee.employee_no == employee_no).first():
-        raise HTTPException(status_code=409, detail="工号已存在")
+        raise HTTPException(status_code=409, detail="用户名已存在")
     employee = Employee(employee_no=employee_no, name=body.name.strip() or employee_no, status="active")
     db.add(employee)
     db.commit()
@@ -56,7 +56,7 @@ def disable_employee(
 ):
     employee = db.query(Employee).filter(Employee.employee_no == employee_no).first()
     if not employee:
-        raise HTTPException(status_code=404, detail="工号不存在")
+        raise HTTPException(status_code=404, detail="用户名不存在")
     employee.status = "disabled"
     user = db.query(User).filter(User.employee_no == employee_no).first()
     if user:

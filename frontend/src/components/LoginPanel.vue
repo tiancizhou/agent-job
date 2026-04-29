@@ -11,7 +11,7 @@
     <div class="login-page__grid" />
 
     <section class="login-hero">
-      <div class="login-hero__badge">中天钢铁内部工具</div>
+      <div class="login-hero__badge">轻量好玩的 AI 小应用</div>
       <div class="login-hero__brand" aria-label="QuickDa 快搭">
         <svg class="login-hero__logo" viewBox="0 0 72 72" role="img" aria-hidden="true">
           <defs>
@@ -25,31 +25,31 @@
         </svg>
         <h1 class="login-hero__title">QuickDa</h1>
       </div>
-      <p class="login-hero__subtitle">快搭工作小应用生成器</p>
-      <p class="login-hero__desc">登录后，用一句话生成登记页、活动页、看板和日常小工具。</p>
+      <p class="login-hero__subtitle">把灵感快搭成好玩的互动小应用</p>
+      <p class="login-hero__desc">登录后，随手描述一个点子，做成可预览、可分享、可继续调整的小页面。</p>
 
       <div class="login-hero__examples">
-        <span>会议报名</span>
-        <span>物品领用</span>
-        <span>数据看板</span>
+        <span>生日邀请</span>
+        <span>趣味投票</span>
+        <span>旅行清单</span>
       </div>
     </section>
 
     <section class="login-card">
       <div class="login-card__spotlight" />
       <div class="login-card__header">
-        <span class="login-card__eyebrow">EMPLOYEE ACCESS</span>
+        <span class="login-card__eyebrow">USER ACCESS</span>
         <h2>{{ mode === "login" ? "登录 QuickDa" : "设置登录密码" }}</h2>
-        <p>{{ mode === "login" ? "使用工号进入你的工作小应用空间" : "首次使用前，请为已开通的工号设置密码" }}</p>
+        <p>{{ mode === "login" ? "使用用户名进入你的创作空间" : "首次使用前，请为已开通的用户名设置密码" }}</p>
       </div>
 
       <form class="form" @submit.prevent="submit">
         <div class="form__field">
-          <label class="form__label">工号</label>
+          <label class="form__label">用户名</label>
           <input
             v-model="employeeNo"
             class="form__input"
-            placeholder="例如：64003"
+            placeholder="例如：10001"
             inputmode="numeric"
             autocomplete="username"
           />
@@ -80,7 +80,7 @@
 
       <div class="login-card__footer">
         <span>QuickDa v1.0</span>
-        <span>轻量生成日常工作页面</span>
+        <span>轻量生成有趣小页面</span>
       </div>
     </section>
   </div>
@@ -148,7 +148,7 @@ async function submit() {
       : await register(employeeNo.value.trim(), password.value)
     emit("authenticated", user)
   } catch {
-    error.value = mode.value === "login" ? "工号或密码错误" : "工号未开通或已设置密码"
+    error.value = mode.value === "login" ? "用户名或密码错误" : "用户名未开通或已设置密码"
   } finally {
     isSubmitting.value = false
   }

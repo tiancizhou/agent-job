@@ -7,7 +7,7 @@
         <div>
           <span class="ea__eyebrow">ADMIN ACCESS</span>
           <h2>后台管理</h2>
-          <p>管理员工访问权限与应用生成风格库。</p>
+          <p>管理用户访问权限与应用生成风格库。</p>
         </div>
         <button class="ea__back" type="button" @click="emit('close')">返回应用生成</button>
       </div>
@@ -18,7 +18,7 @@
           :class="{ 'ea__tab--active': tab === 'employees' }"
           type="button"
           @click="tab = 'employees'"
-        >工号管理</button>
+        >用户管理</button>
         <button
           class="ea__tab"
           :class="{ 'ea__tab--active': tab === 'styles' }"
@@ -30,29 +30,29 @@
       <!-- ── Employee tab ── -->
       <template v-if="tab === 'employees'">
         <div class="ea__stats">
-          <div class="ea__stat"><span>全部工号</span><strong>{{ employees.length }}</strong></div>
-          <div class="ea__stat"><span>可用工号</span><strong>{{ activeCount }}</strong></div>
+          <div class="ea__stat"><span>全部用户</span><strong>{{ employees.length }}</strong></div>
+          <div class="ea__stat"><span>可用用户</span><strong>{{ activeCount }}</strong></div>
           <div class="ea__stat"><span>已禁用</span><strong>{{ disabledCount }}</strong></div>
         </div>
 
         <form class="ea__form" @submit.prevent="addEmployee">
           <div class="ea__field">
-            <label>工号</label>
-            <input v-model="employeeNo" placeholder="例如 64004" inputmode="numeric" />
+            <label>用户名</label>
+            <input v-model="employeeNo" placeholder="例如 10001" inputmode="numeric" />
           </div>
           <div class="ea__field">
             <label>姓名</label>
-            <input v-model="empName" placeholder="请输入员工姓名" />
+            <input v-model="empName" placeholder="请输入用户姓名" />
           </div>
-          <button class="ea__add" :disabled="!canAdd" type="submit">新增工号</button>
+          <button class="ea__add" :disabled="!canAdd" type="submit">新增用户</button>
         </form>
 
         <div v-if="empError" class="ea__error">{{ empError }}</div>
 
         <div class="ea__list-card">
           <div class="ea__list-head">
-            <h3>员工访问名单</h3>
-            <p>禁用后该工号将不能继续登录 QuickDa。</p>
+            <h3>用户访问名单</h3>
+            <p>禁用后该用户将不能继续登录 QuickDa。</p>
           </div>
           <div class="ea__list">
             <div v-for="employee in employees" :key="employee.employee_no" class="ea__item">
@@ -60,7 +60,7 @@
                 <span class="ea__avatar">{{ employee.name.slice(0, 1) || employee.employee_no.slice(-1) }}</span>
                 <div>
                   <strong>{{ employee.name }}</strong>
-                  <span>工号 {{ employee.employee_no }}</span>
+                  <span>用户名 {{ employee.employee_no }}</span>
                 </div>
               </div>
               <div class="ea__actions">
@@ -70,7 +70,7 @@
                 <button v-if="employee.status === 'active'" class="ea__btn--danger" type="button" @click="disable(employee.employee_no)">禁用</button>
               </div>
             </div>
-            <div v-if="employees.length === 0" class="ea__empty">暂无工号，请先新增可登录员工。</div>
+            <div v-if="employees.length === 0" class="ea__empty">暂无用户，请先新增可登录用户。</div>
           </div>
         </div>
       </template>
@@ -191,7 +191,7 @@ async function addEmployee() {
     employeeNo.value = ""
     empName.value = ""
   } catch {
-    empError.value = "新增失败，工号可能已存在。"
+    empError.value = "新增失败，用户名可能已存在。"
   }
 }
 

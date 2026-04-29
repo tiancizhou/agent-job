@@ -5,9 +5,9 @@
       <div class="home-hero__orb home-hero__orb--orange" />
 
       <div class="home-hero__content">
-        <div class="home-hero__badge">快搭 QD 工作小应用生成器</div>
-        <h1 class="home-hero__title">你说需求，我来生成工作小应用</h1>
-        <p class="home-hero__subtitle">不用写代码，把登记表、活动页、查询页、看板和小工具，用一句话变成可访问的页面应用。</p>
+        <div class="home-hero__badge">快搭 QD · 轻量好玩的 AI 小应用</div>
+        <h1 class="home-hero__title">一个点子，马上搭成有趣小页面</h1>
+        <p class="home-hero__subtitle">不用写代码，把脑洞、邀请、投票、清单或小游戏，快速变成可预览、可分享的互动小应用。</p>
 
         <div
           class="home-hero__composer"
@@ -19,7 +19,7 @@
             ref="inputRef"
             v-model="inputText"
             class="home-hero__textarea"
-            placeholder="例如：帮我做一个物品领用登记页，包含姓名、部门、物品名称和领用时间"
+            placeholder="例如：帮我做一个周末旅行投票页，可以选目的地、日期和同行人数"
             rows="4"
             @keydown.enter.exact.prevent="sendMessage"
             @input="autoResize"
@@ -303,12 +303,12 @@ const statusPollers: Record<string, number | undefined> = {}
 const resumeStreams: Record<string, ResumeStreamState | undefined> = {}
 
 const promptTips = [
-  "会议报名页",
-  "年会抽奖页",
-  "物品领用登记",
-  "安全检查清单",
-  "班组数据看板",
-  "通知展示页",
+  "生日邀请页",
+  "周末投票页",
+  "旅行愿望清单",
+  "盲盒抽签器",
+  "宠物档案卡",
+  "小游戏计分板",
 ]
 
 const heroStyle = computed(() => ({

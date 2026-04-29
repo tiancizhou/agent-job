@@ -14,13 +14,13 @@
     <main class="chat-area">
       <header class="topbar">
         <button v-if="currentUser.is_admin" type="button" @click="showAdmin = !showAdmin">
-          {{ showAdmin ? "应用生成" : "工号管理" }}
+          {{ showAdmin ? "应用生成" : "用户管理" }}
         </button>
         <button type="button" class="topbar__usage" @click="isUsagePanelOpen = true">
           Token：{{ formatTokenCount(usageSummary?.total_tokens || 0) }}
         </button>
         <div class="topbar__user">
-          <span>{{ currentUser.employee_no }}</span>
+          <span>用户 {{ currentUser.employee_no }}</span>
           <button type="button" @click="onLogout">退出登录</button>
         </div>
       </header>

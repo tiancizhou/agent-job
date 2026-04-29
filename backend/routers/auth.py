@@ -19,7 +19,7 @@ def register(body: AuthRequest, request: Request, response: Response, db: Sessio
     employee_no = body.employee_no.strip()
     employee = db.query(Employee).filter(Employee.employee_no == employee_no).first()
     if not employee or employee.status != "active":
-        raise HTTPException(status_code=403, detail="工号未开通")
+        raise HTTPException(status_code=403, detail="用户名未开通")
     existing = db.query(User).filter(User.employee_no == employee_no).first()
     if existing:
         raise HTTPException(status_code=409, detail="账号已注册")
@@ -37,7 +37,7 @@ def login(body: AuthRequest, request: Request, response: Response, db: Session =
     user = db.query(User).filter(User.employee_no == employee_no).first()
     employee = db.query(Employee).filter(Employee.employee_no == employee_no).first()
     if not user or not employee or employee.status != "active" or not verify_password(body.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="工号或密码错误")
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
     create_session(user, db, response, request)
     return user
 
