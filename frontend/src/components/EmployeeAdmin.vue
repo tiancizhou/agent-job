@@ -25,6 +25,12 @@
           type="button"
           @click="tab = 'styles'"
         >风格管理</button>
+        <button
+          class="ea__tab"
+          :class="{ 'ea__tab--active': tab === 'llm' }"
+          type="button"
+          @click="tab = 'llm'"
+        >模型配置</button>
       </div>
 
       <!-- ── Employee tab ── -->
@@ -153,6 +159,48 @@
         </div>
       </template>
 
+      <!-- ── LLM Settings tab ── -->
+      <template v-if="tab === 'llm'">
+        <form class="ea__form ea__form--col" @submit.prevent="saveLLMSettings">
+          <div class="ea__row ea__row--two">
+            <div class="ea__field">
+              <label>Base URL</label>
+              <input v-model="llmBaseUrl" placeholder="例如：https://api.openai.com/v1" />
+            </div>
+            <div class="ea__field">
+              <label>模型名称</label>
+              <input v-model="llmModel" placeholder="例如：gpt-4o-mini" />
+            </div>
+          </div>
+          <div class="ea__field">
+            <label>API Key</label>
+            <input v-model="llmApiKey" type="password" autocomplete="new-password" placeholder="留空则保留已配置密钥" />
+          </div>
+          <div class="ea__config-summary">
+            <span>当前来源：{{ llmSettings?.source === 'database' ? '后台配置' : '环境变量' }}</span>
+            <span>密钥状态：{{ llmSettings?.api_key_configured ? (llmSettings.api_key_masked || '已配置') : '未配置' }}</span>
+          </div>
+          <button class="ea__add" :disabled="!canSaveLLMSettings || llmSaving" type="submit">
+            {{ llmSaving ? '保存中...' : '保存模型配置' }}
+          </button>
+        </form>
+
+        <div v-if="llmError" class="ea__error">{{ llmError }}</div>
+        <div v-if="llmSuccess" class="ea__success">{{ llmSuccess }}</div>
+
+        <div class="ea__list-card">
+          <div class="ea__list-head">
+            <h3>当前模型连接</h3>
+            <p>新发起的命名、生成和编辑请求会优先使用后台配置；API Key 不会在页面展示明文。</p>
+          </div>
+          <div class="ea__settings-view">
+            <div><span>Base URL</span><strong>{{ llmSettings?.base_url || '未配置' }}</strong></div>
+            <div><span>模型名称</span><strong>{{ llmSettings?.model || '未配置' }}</strong></div>
+            <div><span>API Key</span><strong>{{ llmSettings?.api_key_masked || (llmSettings?.api_key_configured ? '已配置' : '未配置') }}</strong></div>
+          </div>
+        </div>
+      </template>
+
     </section>
   </div>
 </template>
@@ -162,11 +210,12 @@ import { computed, onMounted, ref } from "vue"
 import {
   createEmployee, disableEmployee, listEmployees, type Employee,
   createStyle, deleteStyle, listAdminStyles, updateStyle, type Style,
+  getLLMSettings, updateLLMSettings, type LLMSettingsSummary,
 } from "../api/index"
 
 const emit = defineEmits<{ close: [] }>()
 
-const tab = ref<"employees" | "styles">("employees")
+const tab = ref<"employees" | "styles" | "llm">("employees")
 
 // ── Employees ──
 const employees = ref<Employee[]>([])
@@ -262,9 +311,55 @@ async function removeStyle(id: string) {
   adminStyles.value = adminStyles.value.filter((s) => s.id !== id)
 }
 
+// ── LLM Settings ──
+const llmSettings = ref<LLMSettingsSummary | null>(null)
+const llmBaseUrl = ref("")
+const llmModel = ref("")
+const llmApiKey = ref("")
+const llmSaving = ref(false)
+const llmError = ref("")
+const llmSuccess = ref("")
+
+const canSaveLLMSettings = computed(() => llmBaseUrl.value.trim().length > 0 && llmModel.value.trim().length > 0)
+
+async function loadLLMSettings() {
+  llmError.value = ""
+  try {
+    llmSettings.value = await getLLMSettings()
+    llmBaseUrl.value = llmSettings.value.base_url
+    llmModel.value = llmSettings.value.model
+    llmApiKey.value = ""
+  } catch {
+    llmError.value = "模型配置加载失败，请稍后重试。"
+  }
+}
+
+async function saveLLMSettings() {
+  if (!canSaveLLMSettings.value) return
+  llmSaving.value = true
+  llmError.value = ""
+  llmSuccess.value = ""
+  try {
+    llmSettings.value = await updateLLMSettings({
+      base_url: llmBaseUrl.value.trim(),
+      model: llmModel.value.trim(),
+      api_key: llmApiKey.value,
+    })
+    llmBaseUrl.value = llmSettings.value.base_url
+    llmModel.value = llmSettings.value.model
+    llmApiKey.value = ""
+    llmSuccess.value = "模型配置已保存。"
+  } catch {
+    llmError.value = "保存失败，请检查 Base URL、模型名称和 API Key。"
+  } finally {
+    llmSaving.value = false
+  }
+}
+
 onMounted(() => {
   loadEmployees()
   loadAdminStyles()
+  loadLLMSettings()
 })
 </script>
 
@@ -430,6 +525,10 @@ onMounted(() => {
   gap: 12px;
 }
 
+.ea__row--two {
+  grid-template-columns: 1fr 1fr;
+}
+
 .ea__field {
   display: flex;
   flex-direction: column;
@@ -505,6 +604,53 @@ onMounted(() => {
   background: #fff1f2;
   color: #dc2626;
   font-size: 13px;
+}
+
+.ea__success {
+  padding: 10px 12px;
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  border-radius: 14px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 13px;
+}
+
+.ea__config-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.ea__config-summary span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(240, 249, 255, 0.86);
+}
+
+.ea__settings-view {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.ea__settings-view div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ea__settings-view span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.ea__settings-view strong {
+  color: #0f172a;
+  font-size: 14px;
+  overflow-wrap: anywhere;
 }
 
 .ea__list-card {

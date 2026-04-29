@@ -76,6 +76,20 @@ export interface UsageRecord {
   updated_at: string
 }
 
+export interface LLMSettingsSummary {
+  base_url: string
+  model: string
+  api_key_configured: boolean
+  api_key_masked?: string | null
+  source: "database" | "env"
+}
+
+export interface LLMSettingsUpdate {
+  base_url: string
+  model: string
+  api_key?: string
+}
+
 export type DevicePreference = "mobile" | "desktop" | "responsive"
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -178,6 +192,17 @@ export async function updateStyle(id: string, data: Partial<Style>): Promise<Sty
 
 export async function deleteStyle(id: string): Promise<void> {
   await request<{ ok: boolean }>(`/admin/styles/${id}`, { method: "DELETE" })
+}
+
+export async function getLLMSettings(): Promise<LLMSettingsSummary> {
+  return request<LLMSettingsSummary>("/admin/llm-settings")
+}
+
+export async function updateLLMSettings(data: LLMSettingsUpdate): Promise<LLMSettingsSummary> {
+  return request<LLMSettingsSummary>("/admin/llm-settings", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  })
 }
 
 export async function listConversations(appId: string): Promise<Conversation[]> {

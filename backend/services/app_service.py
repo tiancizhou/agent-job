@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from config import Settings
 from database import SessionLocal
 from models import App, Conversation, Style, UsageRecord
-from services import ai_service, code_service, token_service
+from services import ai_service, code_service, llm_config_service, token_service
 
 LEGACY_HTML_SYSTEM_PROMPT = (
     "You are an expert frontend developer. When the user describes an application, "
@@ -169,7 +169,8 @@ async def _run_html_generation(
             return
 
         async with semaphore:
-            await _generate_with_limit(app, user_message, settings, state, db, device_preference)
+            effective_llm_settings = llm_config_service.resolve_effective_llm_settings(db, settings)
+            await _generate_with_limit(app, user_message, settings, effective_llm_settings, state, db, device_preference)
             return
 
     except Exception:
@@ -212,6 +213,7 @@ async def _generate_with_limit(
     app: App,
     user_message: str,
     settings: Settings,
+    llm_settings: llm_config_service.EffectiveLLMSettings,
     state: GenerationState,
     db: Session,
     device_preference: str,
@@ -225,7 +227,7 @@ async def _generate_with_limit(
         is_first = app.version == 0
         action = "generate" if is_first else "edit"
         if is_first:
-            await _set_app_name(app, user_message, settings, db)
+            await _set_app_name(app, user_message, llm_settings, db)
 
         prior_conversations = (
             db.query(Conversation)
@@ -236,7 +238,7 @@ async def _generate_with_limit(
 
         messages = _build_project_messages(app, user_message, prior_conversations, settings, db, device_preference)
 
-        async for event in ai_service.stream_chat_events(messages, settings):
+        async for event in ai_service.stream_chat_events(messages, llm_settings):
             if event.content:
                 full_reply.append(event.content)
                 state.chunks.append(event.content)
@@ -269,7 +271,7 @@ async def _generate_with_limit(
             action=action,
             messages=messages,
             reply_text=reply_text,
-            settings=settings,
+            settings=llm_settings,
             usage=stream_usage,
             status=usage_status,
         )
@@ -292,7 +294,7 @@ async def _generate_with_limit(
                     action=action,
                     messages=messages,
                     reply_text="".join(full_reply),
-                    settings=settings,
+                    settings=llm_settings,
                     usage=stream_usage,
                     status="failed",
                 )
@@ -369,7 +371,7 @@ def _active_app_url(app_id: str, settings: Settings) -> str:
     return f"/apps/{app_id}/"
 
 
-async def _set_app_name(app: App, user_message: str, settings: Settings, db: Session) -> None:
+async def _set_app_name(app: App, user_message: str, settings: object, db: Session) -> None:
     naming_messages = [
         {
             "role": "user",
@@ -402,7 +404,7 @@ def _record_usage(
     action: str,
     messages: list[dict],
     reply_text: str,
-    settings: Settings,
+    settings: object,
     usage: ai_service.TokenUsage | None,
     status: str,
 ) -> None:

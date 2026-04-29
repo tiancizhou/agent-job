@@ -194,6 +194,17 @@ class AppDataRecord(Base):
     updated_at = Column(DB_DATETIME, nullable=False, default=now_utc, onupdate=now_utc)
 
 
+class LLMSetting(Base):
+    __tablename__ = "llm_settings"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    base_url = Column(String(500), nullable=False)
+    model = Column(String(100), nullable=False)
+    api_key = Column(Text, nullable=True)
+    created_at = Column(DB_DATETIME, nullable=False, default=now_utc)
+    updated_at = Column(DB_DATETIME, nullable=False, default=now_utc, onupdate=now_utc)
+
+
 class UserResponse(BaseModel):
     employee_no: str
     is_admin: bool

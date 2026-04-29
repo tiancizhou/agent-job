@@ -19,6 +19,7 @@ These guidelines document the current backend conventions for QuickApp's FastAPI
 | [Error Handling](./error-handling.md) | Error types, handling strategies | Populated |
 | [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | Populated |
 | [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | Populated |
+| [LLM Settings Contract](./llm-settings.md) | Admin-configurable LLM connection contract | Populated |
 
 ---
 

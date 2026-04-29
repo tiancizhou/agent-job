@@ -158,7 +158,8 @@ class DatabaseConfigurationTestCase(unittest.TestCase):
 
             self.assertIn("users", tables)
             self.assertIn("app_data_records", tables)
-            self.assertEqual("0002_app_data_records", version)
+            self.assertIn("llm_settings", tables)
+            self.assertEqual("0003_llm_settings", version)
             backups = list(Path(tmp.name).glob("quickapp.db.legacy-*.bak"))
             self.assertEqual([], backups)
         finally:

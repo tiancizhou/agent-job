@@ -3,8 +3,6 @@ from typing import AsyncIterator
 
 import httpx
 
-from config import Settings
-
 
 @dataclass
 class TokenUsage:
@@ -135,7 +133,7 @@ def parse_non_streaming_response(data: dict) -> ChatResult:
 
 async def stream_chat_events(
     messages: list[dict],
-    settings: Settings,
+    settings: object,
 ) -> AsyncIterator[StreamChatEvent]:
     """
     Call an OpenAI-compatible chat completions endpoint with streaming.
@@ -175,13 +173,13 @@ async def stream_chat_events(
                     continue
 
 
-async def stream_chat(messages: list[dict], settings: Settings) -> AsyncIterator[str]:
+async def stream_chat(messages: list[dict], settings: object) -> AsyncIterator[str]:
     async for event in stream_chat_events(messages, settings):
         if event.content:
             yield event.content
 
 
-async def non_streaming_chat_with_usage(messages: list[dict], settings: Settings) -> ChatResult:
+async def non_streaming_chat_with_usage(messages: list[dict], settings: object) -> ChatResult:
     """
     Call the chat completions endpoint without streaming and return the full reply with usage when available.
     """
@@ -203,5 +201,5 @@ async def non_streaming_chat_with_usage(messages: list[dict], settings: Settings
         return parse_non_streaming_response(data)
 
 
-async def non_streaming_chat(messages: list[dict], settings: Settings) -> str:
+async def non_streaming_chat(messages: list[dict], settings: object) -> str:
     return (await non_streaming_chat_with_usage(messages, settings)).content

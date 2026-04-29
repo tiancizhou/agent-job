@@ -3,7 +3,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db
+from config import settings
 from models import App, Employee, EmployeeResponse, SessionToken, Style, StyleResponse, User
+from services import llm_config_service
 from services.auth_service import require_admin
 
 router = APIRouter()
@@ -25,6 +27,20 @@ class StyleUpdateRequest(BaseModel):
     prompt: str | None = None
     sort_order: int | None = None
     is_active: bool | None = None
+
+
+class LLMSettingsUpdateRequest(BaseModel):
+    base_url: str
+    model: str
+    api_key: str | None = None
+
+
+class LLMSettingsResponse(BaseModel):
+    base_url: str
+    model: str
+    api_key_configured: bool
+    api_key_masked: str | None
+    source: str
 
 
 @router.get("/admin/employees", response_model=list[EmployeeResponse])
@@ -130,3 +146,23 @@ def delete_style(
     db.delete(style)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/admin/llm-settings", response_model=LLMSettingsResponse)
+def get_llm_settings(_: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return llm_config_service.summarize_effective_llm_settings(db, settings)
+
+
+@router.put("/admin/llm-settings", response_model=LLMSettingsResponse)
+def put_llm_settings(
+    body: LLMSettingsUpdateRequest,
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    return llm_config_service.update_llm_settings(
+        db=db,
+        settings=settings,
+        base_url=body.base_url,
+        model=body.model,
+        api_key=body.api_key,
+    )
