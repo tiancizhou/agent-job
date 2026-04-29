@@ -67,8 +67,10 @@ function confirmDelete(id: string) {
 function statusLabel(status: App["status"]): string {
   switch (status) {
     case "creating": return "生成中"
+    case "editing": return "修改中"
     case "active": return "正常"
     case "failed": return "失败"
+    case "edit_failed": return "修改失败"
     default: return status
   }
 }
@@ -226,7 +228,8 @@ function statusLabel(status: App["status"]): string {
   border-radius: 999px;
 }
 
-.app-list__badge--creating {
+.app-list__badge--creating,
+.app-list__badge--editing {
   background: #eef2ff;
   color: #4f46e5;
 }
@@ -236,7 +239,8 @@ function statusLabel(status: App["status"]): string {
   color: #047857;
 }
 
-.app-list__badge--failed {
+.app-list__badge--failed,
+.app-list__badge--edit_failed {
   background: #fef2f2;
   color: #dc2626;
 }

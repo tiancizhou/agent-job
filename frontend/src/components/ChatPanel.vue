@@ -107,7 +107,7 @@
           <div class="chat-panel__aurora" />
           <div class="chat-panel__message-stream">
             <div v-if="messages.length === 0" class="chat-panel__empty-chat">
-              <span>继续描述你的应用需求，右侧会显示生成后的页面预览。</span>
+              <span>{{ emptyChatHint }}</span>
             </div>
             <MessageBubble
               v-for="(msg, i) in messages"
@@ -133,7 +133,7 @@
               v-model="inputText"
               class="chat-panel__textarea"
               :disabled="currentAppIsStreaming"
-              :placeholder="currentAppIsStreaming ? '正在生成中…' : '描述你想要的应用功能…'"
+              :placeholder="inputPlaceholder"
               rows="1"
               @keydown.enter.exact.prevent="sendMessage"
               @input="autoResize"
@@ -217,6 +217,7 @@
             <div>
               <span class="preview-card__eyebrow">实时预览</span>
               <h2>{{ currentApp?.name || "未命名应用" }}</h2>
+              <p v-if="previewGuidance" class="preview-card__guidance">{{ previewGuidance }}</p>
             </div>
             <a
               v-if="previewUrl"
@@ -327,14 +328,40 @@ const previewUrl = computed(() => {
   return null
 })
 
+const emptyChatHint = computed(() => {
+  if (currentApp.value?.status === "active") return "继续描述要调整的地方，QuickApp 会在当前应用上修改。"
+  if (currentApp.value?.status === "edit_failed") return "上一次修改失败，旧版本已保留；可以继续描述要调整的地方。"
+  if (currentApp.value?.status === "failed") return "上一次生成失败，可以调整需求后重新发送。"
+  return "继续描述你的应用需求，右侧会显示生成后的页面预览。"
+})
+
+const inputPlaceholder = computed(() => {
+  if (currentAppIsStreaming.value) return currentApp.value?.version ? "正在修改中…" : "正在生成中…"
+  if (currentApp.value?.status === "active") return "继续描述要调整的内容…"
+  if (currentApp.value?.status === "edit_failed") return "旧版本已保留，继续描述要怎么修改…"
+  if (currentApp.value?.status === "failed") return "调整需求后重新发送…"
+  return "描述你想要的应用功能…"
+})
+
+const previewGuidance = computed(() => {
+  if (!previewUrl.value) return ""
+  if (currentApp.value?.status === "editing" || (currentAppIsStreaming.value && currentApp.value?.version)) return "正在修改中，当前预览仍是上一个可用版本。"
+  if (currentApp.value?.status === "edit_failed") return "修改失败但旧版本已保留，可在左侧继续描述调整。"
+  return "想继续调整？直接在左侧描述要修改的地方。"
+})
+
 const previewTitle = computed(() => {
   if (currentApp.value?.status === "failed") return "应用生成失败"
+  if (currentApp.value?.status === "editing" && previewUrl.value) return "正在修改应用"
+  if (currentApp.value?.status === "edit_failed") return "应用修改失败"
   if (currentAppIsStreaming.value || currentApp.value?.status === "creating" || currentApp.value?.status === "editing") return "正在准备预览"
   return "预览暂不可用"
 })
 
 const previewDescription = computed(() => {
-  if (currentApp.value?.status === "failed") return "可以在左侧继续对话，让 QuickApp 重新调整或再次生成。"
+  if (currentApp.value?.status === "failed") return "可以在左侧调整需求后重新发送，QuickApp 会再次尝试生成。"
+  if (currentApp.value?.status === "editing" && previewUrl.value) return "旧版本预览仍可使用，修改完成后这里会自动刷新。"
+  if (currentApp.value?.status === "edit_failed") return "上一个可用版本已保留，可以继续描述要调整的内容。"
   if (currentAppIsStreaming.value || currentApp.value?.status === "creating" || currentApp.value?.status === "editing") return "模型回复会正常显示在左侧，页面生成完成后这里会自动切换为实时预览。"
   return "当前应用还没有可打开的页面。"
 })
@@ -1249,6 +1276,14 @@ onUnmounted(() => {
   color: #0f172a;
   font-size: 18px;
   letter-spacing: -0.03em;
+}
+
+.preview-card__guidance {
+  margin: 6px 0 0;
+  max-width: 360px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .preview-card__open {
