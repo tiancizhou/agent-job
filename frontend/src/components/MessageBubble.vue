@@ -87,7 +87,7 @@ const resultTitle = computed(() => {
 const resultDescription = computed(() => {
   if (props.resultStatus === "active") return "生成结果已自动收起，可以在右侧预览，也可以打开链接使用。"
   if (props.resultStatus === "busy") return "当前同时生成的任务较多，请稍后重新发送需求。"
-  if (props.resultStatus === "failed") return "请调整需求后重新发送，QuickApp 会继续尝试生成。"
+  if (props.resultStatus === "failed") return "请调整需求后重新发送，快搭会继续尝试生成。"
   if (props.resultStatus === "edit_failed") return "已保留上一个可用版本，请调整需求后重新发送。"
   return "模型回复会保留在上方，生成完成后这里会自动收起。"
 })

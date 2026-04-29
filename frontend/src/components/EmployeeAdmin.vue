@@ -52,7 +52,7 @@
         <div class="ea__list-card">
           <div class="ea__list-head">
             <h3>员工访问名单</h3>
-            <p>禁用后该工号将不能继续登录 QuickApp。</p>
+            <p>禁用后该工号将不能继续登录 QuickDa。</p>
           </div>
           <div class="ea__list">
             <div v-for="employee in employees" :key="employee.employee_no" class="ea__item">

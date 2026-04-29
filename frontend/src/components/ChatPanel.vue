@@ -5,7 +5,7 @@
       <div class="home-hero__orb home-hero__orb--orange" />
 
       <div class="home-hero__content">
-        <div class="home-hero__badge">QuickApp 工作小应用生成器</div>
+        <div class="home-hero__badge">快搭 QD 工作小应用生成器</div>
         <h1 class="home-hero__title">你说需求，我来生成工作小应用</h1>
         <p class="home-hero__subtitle">不用写代码，把登记表、活动页、查询页、看板和小工具，用一句话变成可访问的页面应用。</p>
 
@@ -329,7 +329,7 @@ const previewUrl = computed(() => {
 })
 
 const emptyChatHint = computed(() => {
-  if (currentApp.value?.status === "active") return "继续描述要调整的地方，QuickApp 会在当前应用上修改。"
+  if (currentApp.value?.status === "active") return "继续描述要调整的地方，快搭会在当前应用上修改。"
   if (currentApp.value?.status === "edit_failed") return "上一次修改失败，旧版本已保留；可以继续描述要调整的地方。"
   if (currentApp.value?.status === "failed") return "上一次生成失败，可以调整需求后重新发送。"
   return "继续描述你的应用需求，右侧会显示生成后的页面预览。"
@@ -359,7 +359,7 @@ const previewTitle = computed(() => {
 })
 
 const previewDescription = computed(() => {
-  if (currentApp.value?.status === "failed") return "可以在左侧调整需求后重新发送，QuickApp 会再次尝试生成。"
+  if (currentApp.value?.status === "failed") return "可以在左侧调整需求后重新发送，快搭会再次尝试生成。"
   if (currentApp.value?.status === "editing" && previewUrl.value) return "旧版本预览仍可使用，修改完成后这里会自动刷新。"
   if (currentApp.value?.status === "edit_failed") return "上一个可用版本已保留，可以继续描述要调整的内容。"
   if (currentAppIsStreaming.value || currentApp.value?.status === "creating" || currentApp.value?.status === "editing") return "模型回复会正常显示在左侧，页面生成完成后这里会自动切换为实时预览。"

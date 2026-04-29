@@ -12,8 +12,20 @@
 
     <section class="login-hero">
       <div class="login-hero__badge">中天钢铁内部工具</div>
-      <h1 class="login-hero__title">QuickApp</h1>
-      <p class="login-hero__subtitle">工作小应用生成器</p>
+      <div class="login-hero__brand" aria-label="QuickDa 快搭">
+        <svg class="login-hero__logo" viewBox="0 0 72 72" role="img" aria-hidden="true">
+          <defs>
+            <linearGradient id="qd-login-logo-gradient" x1="10" y1="8" x2="62" y2="64" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#0284c7" />
+              <stop offset="1" stop-color="#f97316" />
+            </linearGradient>
+          </defs>
+          <rect width="72" height="72" rx="24" fill="url(#qd-login-logo-gradient)" />
+          <path d="M35.4 49C24.9 49 18 42.2 18 33.2C18 24.1 24.9 17.3 35.4 17.3C45.9 17.3 52.8 24.1 52.8 33.2C52.8 37.5 51.2 41.2 48.3 44L54.6 50.2L49.2 55.4L42.6 48.8C40.5 49 38.1 49 35.4 49ZM35.4 41.9C40.8 41.9 44.7 38.4 44.7 33.2C44.7 27.9 40.8 24.4 35.4 24.4C29.9 24.4 26.1 27.9 26.1 33.2C26.1 38.4 29.9 41.9 35.4 41.9Z" fill="white" />
+        </svg>
+        <h1 class="login-hero__title">QuickDa</h1>
+      </div>
+      <p class="login-hero__subtitle">快搭工作小应用生成器</p>
       <p class="login-hero__desc">登录后，用一句话生成登记页、活动页、看板和日常小工具。</p>
 
       <div class="login-hero__examples">
@@ -27,7 +39,7 @@
       <div class="login-card__spotlight" />
       <div class="login-card__header">
         <span class="login-card__eyebrow">EMPLOYEE ACCESS</span>
-        <h2>{{ mode === "login" ? "登录 QuickApp" : "设置登录密码" }}</h2>
+        <h2>{{ mode === "login" ? "登录 QuickDa" : "设置登录密码" }}</h2>
         <p>{{ mode === "login" ? "使用工号进入你的工作小应用空间" : "首次使用前，请为已开通的工号设置密码" }}</p>
       </div>
 
@@ -58,7 +70,7 @@
         </div>
 
         <button class="form__btn" :disabled="isSubmitting || !canSubmit" type="submit">
-          {{ isSubmitting ? "正在处理..." : mode === "login" ? "进入 QuickApp" : "完成设置" }}
+          {{ isSubmitting ? "正在处理..." : mode === "login" ? "进入 QuickDa" : "完成设置" }}
         </button>
       </form>
 
@@ -67,7 +79,7 @@
       </button>
 
       <div class="login-card__footer">
-        <span>QuickApp v1.0</span>
+        <span>QuickDa v1.0</span>
         <span>轻量生成日常工作页面</span>
       </div>
     </section>
@@ -241,16 +253,31 @@ async function submit() {
   box-shadow: 0 12px 30px rgba(14, 165, 233, 0.1);
 }
 
+.login-hero__brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 24px;
+  transform: translate3d(calc(var(--shift-x, 0px) * 0.16), calc(var(--shift-y, 0px) * 0.16), 0);
+  transition: transform 0.24s ease-out;
+  will-change: transform;
+}
+
+.login-hero__logo {
+  width: clamp(54px, 7vw, 76px);
+  height: clamp(54px, 7vw, 76px);
+  flex-shrink: 0;
+  border-radius: 24px;
+  box-shadow: 0 24px 54px rgba(2, 132, 199, 0.24);
+}
+
 .login-hero__title {
-  margin: 24px 0 0;
+  margin: 0;
   font-size: clamp(54px, 9vw, 92px);
   line-height: 0.95;
   letter-spacing: -0.08em;
   color: #0f172a;
   font-weight: 860;
-  transform: translate3d(calc(var(--shift-x, 0px) * 0.16), calc(var(--shift-y, 0px) * 0.16), 0);
-  transition: transform 0.24s ease-out;
-  will-change: transform;
 }
 
 .login-hero__subtitle {
@@ -486,6 +513,10 @@ async function submit() {
     margin: 0 auto;
   }
 
+  .login-hero__brand {
+    justify-content: center;
+  }
+
   .login-hero__desc {
     margin-left: auto;
     margin-right: auto;
@@ -528,8 +559,18 @@ async function submit() {
     padding: 5px 10px;
   }
 
+  .login-hero__brand {
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .login-hero__logo {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+  }
+
   .login-hero__title {
-    margin-top: 12px;
     font-size: 40px;
   }
 

@@ -1,7 +1,22 @@
 <template>
   <div class="app-list">
     <div class="app-list__header">
-      <span class="app-list__title">QuickApp</span>
+      <div class="app-list__brand" aria-label="QuickDa 快搭">
+        <svg class="app-list__logo" viewBox="0 0 48 48" role="img" aria-hidden="true">
+          <defs>
+            <linearGradient id="qd-logo-gradient" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#0284c7" />
+              <stop offset="1" stop-color="#f97316" />
+            </linearGradient>
+          </defs>
+          <rect width="48" height="48" rx="16" fill="url(#qd-logo-gradient)" />
+          <path d="M23.5 32.5C16.6 32.5 12 28 12 22.1C12 16.1 16.6 11.5 23.5 11.5C30.4 11.5 35 16.1 35 22.1C35 25 33.9 27.5 31.9 29.3L36 33.4L32.5 36.8L28.1 32.4C26.7 32.5 25.2 32.5 23.5 32.5ZM23.5 27.9C27.1 27.9 29.6 25.6 29.6 22.1C29.6 18.6 27.1 16.2 23.5 16.2C19.9 16.2 17.4 18.6 17.4 22.1C17.4 25.6 19.9 27.9 23.5 27.9Z" fill="white" />
+        </svg>
+        <div>
+          <span class="app-list__title">QuickDa</span>
+          <span class="app-list__subtitle">快搭 · QD</span>
+        </div>
+      </div>
       <button class="app-list__new-btn" @click="emit('new-app')">
         + 新建应用
       </button>
@@ -93,11 +108,34 @@ function statusLabel(status: App["status"]): string {
   border-bottom: 1px solid #eef0f4;
 }
 
+.app-list__brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.app-list__logo {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  box-shadow: 0 14px 28px rgba(2, 132, 199, 0.22);
+}
+
 .app-list__title {
+  display: block;
   font-size: 18px;
-  font-weight: 760;
+  font-weight: 800;
   color: #111827;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
+}
+
+.app-list__subtitle {
+  display: block;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .app-list__new-btn {
