@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="QD">
+  <defs>
+    <linearGradient id="qd-favicon-gradient" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0284c7" />
+      <stop offset="1" stop-color="#f97316" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="20" fill="url(#qd-favicon-gradient)" />
+  <path d="M29.8 43.5C20.4 43.5 14.2 37.5 14.2 29.4C14.2 21.2 20.4 15.2 29.8 15.2C39.2 15.2 45.4 21.2 45.4 29.4C45.4 33.2 44 36.5 41.5 39L47 44.4L42.2 49L36.4 43.2C34.5 43.5 32.3 43.5 29.8 43.5ZM29.8 37.2C34.6 37.2 38.1 34.1 38.1 29.4C38.1 24.6 34.6 21.5 29.8 21.5C24.9 21.5 21.5 24.6 21.5 29.4C21.5 34.1 24.9 37.2 29.8 37.2Z" fill="#ffffff" />
+</svg>
