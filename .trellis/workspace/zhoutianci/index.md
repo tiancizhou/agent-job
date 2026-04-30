@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 8
-- **Last Active**: 2026-04-29
+- **Total Sessions**: 9
+- **Last Active**: 2026-04-30
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~278 | Active |
+| `journal-1.md` | ~311 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 9 | 2026-04-30 | Fix Windows start script flash exit | `cd5f3d1` | `main` |
 | 8 | 2026-04-29 | Admin configurable LLM settings | `5048991` | `main` |
 | 7 | 2026-04-29 | Next.js static export generation MVP | `a6c8442` | `main` |
 | 6 | 2026-04-29 | 设备偏好与风格发现性优化 | `c71b291` | `main` |

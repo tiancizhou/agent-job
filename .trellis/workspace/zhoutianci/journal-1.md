@@ -276,3 +276,36 @@ Implemented admin-managed LLM base URL, model, and API key settings with databas
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: Fix Windows start script flash exit
+
+**Date**: 2026-04-30
+**Task**: Fix Windows start script flash exit
+**Branch**: `main`
+
+### Summary
+
+Updated backend/start.bat so Windows double-click failures show the failed step, exit code, and pause instead of closing immediately.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cd5f3d1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
